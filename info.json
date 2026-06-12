@@ -1,0 +1,9 @@
+{
+	"Id": "CustomDemonstrators",
+	"Version": "1.0.1",
+	"DisplayName": "Custom Demonstrators",
+	"Author": "SharkBaitDLS",
+	"EntryMethod": "CustomDemonstrators.Main.Load",
+	"ManagerVersion": "0.27.3",
+	"Repository": "https://raw.githubusercontent.com/SharkBaitDLS/dv-custom-demonstrators/main/repository.json"
+}
