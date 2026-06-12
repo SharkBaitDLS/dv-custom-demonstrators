@@ -11,20 +11,20 @@ public static class Main
     {
         Harmony? harmony = null;
 
-		try
-		{
-			harmony = new Harmony(modEntry.Info.Id);
-			harmony.PatchAll(Assembly.GetExecutingAssembly());
+        try
+        {
+            harmony = new Harmony(modEntry.Info.Id);
+            harmony.PatchAll(Assembly.GetExecutingAssembly());
 
-			// Other plugin startup logic
-		}
-		catch (Exception ex)
-		{
-			modEntry.Logger.LogException($"Failed to load {modEntry.Info.DisplayName}:", ex);
-			harmony?.UnpatchAll(modEntry.Info.Id);
-			return false;
-		}
+            // Other plugin startup logic
+        }
+        catch (Exception ex)
+        {
+            modEntry.Logger.LogException($"Failed to load {modEntry.Info.DisplayName}:", ex);
+            harmony?.UnpatchAll(modEntry.Info.Id);
+            return false;
+        }
 
-		return true;
+        return true;
     }
 }
