@@ -37,6 +37,9 @@
 		<Reference Include="UnityEngine.IMGUIModule">
 			<HintPath>$(ReferencePath)UnityEngine.IMGUIModule.dll</HintPath>
 		</Reference>
+		<Reference Include="UnityEngine.TextRenderingModule">
+			<HintPath>$(ReferencePath)UnityEngine.TextRenderingModule.dll</HintPath>
+		</Reference>
 	</ItemGroup>
 
 	<!-- Mod Loader -->
