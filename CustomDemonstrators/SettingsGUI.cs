@@ -277,8 +277,12 @@ internal static class SettingsGUI
             _openCargoPickerFor = null;
         }
 
+        var currentChoice = Main.Settings.GetPartsCargoId(slotId);
         foreach (var cargo in _candidateCargos!)
         {
+            // Only offer cargos the parts flatcar can actually load, but never hide an existing choice.
+            if (cargo.id != currentChoice && !GarageReplacements.CanBeRestorationParts(cargo)) continue;
+
             string displayName = Loc(cargo.localizationKeyFull, cargo.id);
             if (_cargoSearch.Length > 0
                 && !displayName.ToLower().Contains(_cargoSearch.ToLower())

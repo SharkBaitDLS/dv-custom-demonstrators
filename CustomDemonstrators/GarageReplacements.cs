@@ -161,6 +161,44 @@ internal static class GarageReplacements
         return true;
     }
 
+    private static TrainCarLivery? RestorationFlatcar()
+    {
+        foreach (var (garage, isDemonstrator, liveries) in GarageVehicles.Groups)
+        {
+            if (isDemonstrator || garage.v1 != Garage.Museum_FlatbedShort) continue;
+            var slot = liveries.FirstOrDefault();
+            return slot == null ? null : GetLivery(CurrentSpawnId(slot)) ?? slot;
+        }
+        return null;
+    }
+
+    internal static bool CanBeRestorationParts(CargoType_v2 cargo)
+    {
+        var carType = RestorationFlatcar()?.parentType;
+        return carType == null || cargo.IsLoadableOnCarType(carType);
+    }
+
+    // After the flatcar changes, drop any explicit parts-cargo overrides the new flatcar can't carry.
+    private static void PruneInvalidCargoOverrides()
+    {
+        foreach (var (_, isDemonstrator, liveries) in GarageVehicles.Groups)
+        {
+            if (!isDemonstrator) continue;
+            var primary = liveries.FirstOrDefault();
+            if (primary == null) continue;
+
+            var choice = Main.Settings.GetPartsCargoId(primary.id);
+            // auto-detect and the generic crate are always loadable since we enforce that flatcar selections
+            // can at minimum carry all vanilla parts cargo
+            if (string.IsNullOrEmpty(choice) || choice == RestorationPartsCustomizer.GenericCrateSentinel)
+                continue;
+
+            var cargo = RestorationPartsCustomizer.FindCargo(choice!);
+            if (cargo == null || !CanBeRestorationParts(cargo))
+                Main.Settings.SetPartsCargoId(primary.id, null);
+        }
+    }
+
     // Applies a selection, swapping with any colliding slot to keep every spawn unique.
     internal static void Select(TrainCarLivery slot, string? newSpawnId)
     {
@@ -172,10 +210,12 @@ internal static class GarageReplacements
             return;
         }
 
-        var collider = ColliderFor(slot, targetId);
+        var (livery, _) = ColliderFor(slot, targetId);
         SetSpawn(slot, targetId);
-        if (collider.livery != null)
-            SetSpawn(collider.livery, vacatedId);
+        if (livery != null)
+            SetSpawn(livery, vacatedId);
+
+        PruneInvalidCargoOverrides();
     }
 
     private static void SetSpawn(TrainCarLivery slot, string spawnId)

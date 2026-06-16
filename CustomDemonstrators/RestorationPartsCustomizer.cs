@@ -13,6 +13,7 @@ using DVLangHelper.Data;
 using DVLangHelper.Runtime;
 using HarmonyLib;
 using I2.Loc;
+using UnityEngine;
 
 namespace CustomDemonstrators;
 
@@ -54,11 +55,18 @@ internal static class RestorationPartsCustomizer
         if (!string.IsNullOrEmpty(choice) && choice != GenericCrateSentinel)
         {
             var picked = FindCargo(choice!);
-            if (picked != null)
+            if (picked != null && GarageReplacements.CanBeRestorationParts(picked))
             {
                 controller.locoPartCargo = picked; // use the chosen cargo (and its model) as-is
                 return;
             }
+
+            // This should generally never happen since the settings GUI enforces correctness of the
+            // overrides, but if the settings file is hand-edited or a mod author updates their CCL
+            // car in a way that invalidates a previously valid configuration we should not brick the
+            // entire quest chain. Log so user bug reports can be pointed to the actual root cause.
+            Main.Logger.Warning($"Restoration parts cargo override '{choice}' for {slotId} is invalid "
+                + "(cargo missing or not loadable on the parts flatcar); falling back to auto-detect.");
         }
 
         if (replacementLoco == null || controller.locoPartCargo == null) return;
@@ -95,7 +103,7 @@ internal static class RestorationPartsCustomizer
         int bestScore = 0;
         foreach (var cargo in cargos)
         {
-            if (cargo == null) continue;
+            if (cargo == null || !GarageReplacements.CanBeRestorationParts(cargo)) continue;
             string cargoId = Normalize(cargo.id);
             string cargoName = Normalize(LocalizationAPI.L(cargo.localizationKeyFull));
 

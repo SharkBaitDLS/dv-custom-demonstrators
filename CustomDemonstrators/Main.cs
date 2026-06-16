@@ -9,8 +9,11 @@ public static class Main
 {
     internal static Settings Settings { get; private set; } = null!;
 
+    internal static UnityModManager.ModEntry.ModLogger Logger { get; private set; } = null!;
+
     private static bool Load(UnityModManager.ModEntry modEntry)
     {
+        Logger = modEntry.Logger;
         Settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
 
         Harmony? harmony = null;
@@ -23,7 +26,7 @@ public static class Main
         }
         catch (Exception ex)
         {
-            modEntry.Logger.LogException($"Failed to load {modEntry.Info.DisplayName}:", ex);
+            Logger.LogException($"Failed to load {modEntry.Info.DisplayName}:", ex);
             harmony?.UnpatchAll(modEntry.Info.Id);
             return false;
         }
