@@ -13,7 +13,6 @@ using DVLangHelper.Data;
 using DVLangHelper.Runtime;
 using HarmonyLib;
 using I2.Loc;
-using UnityEngine;
 
 namespace CustomDemonstrators;
 
@@ -58,6 +57,7 @@ internal static class RestorationPartsCustomizer
             if (picked != null && GarageReplacements.CanBeRestorationParts(picked))
             {
                 controller.locoPartCargo = picked; // use the chosen cargo (and its model) as-is
+                SyncRegisterNames(controller);
                 return;
             }
 
@@ -77,11 +77,25 @@ internal static class RestorationPartsCustomizer
             if (matched != null)
             {
                 controller.locoPartCargo = matched;
+                SyncRegisterNames(controller);
                 return;
             }
         }
 
         Customize(controller.locoPartCargo, replacementLoco);
+        SyncRegisterNames(controller);
+    }
+
+    // Point the order/install cash registers at the active cargo's name so the purchase receipt reads
+    // the chosen parts, not the original demonstrator's. The modules carry their own localizationKey
+    // (baked to the vanilla cargo); InitializeData() copies it into the receipt's resourceName when the
+    // controller starts, which is after we run here, so overwriting the field is enough.
+    private static void SyncRegisterNames(LocoRestorationController controller)
+    {
+        var key = controller.locoPartCargo?.localizationKeyFull;
+        if (string.IsNullOrEmpty(key)) return;
+        controller.orderPartsModule?.localizationKey = key!;
+        controller.installPartsModule?.localizationKey = key!;
     }
 
     internal static CargoType_v2? FindCargo(string id) =>
