@@ -24,6 +24,26 @@
 		<Reference Include="DV.Utils">
 			<HintPath>$(ReferencePath)DV.Utils.dll</HintPath>
 		</Reference>
+		<Reference Include="DV.Inventory">
+			<HintPath>$(ReferencePath)DV.Inventory.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+	<!-- Language Helper -->
+	<ItemGroup>
+		<Reference Include="DVLangHelper.Runtime" Private="false">
+			<HintPath>$(ReferencePath)..\..\Mods\DVLangHelper\DVLangHelper.Runtime.dll</HintPath>
+		</Reference>
+		<Reference Include="DVLangHelper.Data" Private="false">
+			<HintPath>$(ReferencePath)..\..\Mods\DVLangHelper\DVLangHelper.Data.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+	<!-- Custom Car Loader -->
+	<ItemGroup>
+		<Reference Include="CCL.Importer" Private="false">
+			<HintPath>$(ReferencePath)..\..\Mods\DVCustomCarLoader\CCL.Importer.dll</HintPath>
+		</Reference>
 	</ItemGroup>
 
 	<!-- Unity -->

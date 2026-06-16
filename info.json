@@ -5,5 +5,14 @@
 	"Author": "SharkBaitDLS",
 	"EntryMethod": "CustomDemonstrators.Main.Load",
 	"ManagerVersion": "0.27.3",
+	"Requirements": [
+		"DVLangHelper",
+		"DVCustomCarLoader"
+	],
+	"LoadAfter": [
+		"DVLangHelper",
+		"DVCustomCarLoader",
+		"DVCustomCargo"
+	],
 	"Repository": "https://raw.githubusercontent.com/SharkBaitDLS/dv-custom-demonstrators/main/repository.json"
 }

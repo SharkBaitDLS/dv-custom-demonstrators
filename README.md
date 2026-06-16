@@ -17,7 +17,9 @@ Below is an example of the necessary structure. When creating your targets file,
 		<ReferencePath>
 			C:\Program Files (x86)\Steam\steamapps\common\Derail Valley\DerailValley_Data\Managed\
 		</ReferencePath>
-		<AssemblySearchPaths>$(AssemblySearchPaths);$(ReferencePath);</AssemblySearchPaths>
+		<AssemblySearchPaths>
+			$(AssemblySearchPaths);$(ReferencePath);$(ReferencePath.Trim())..\..\Mods\DVLangHelper\;$(ReferencePath.Trim())..\..\Mods\DVCustomCarLoader\
+		</AssemblySearchPaths>
 	</PropertyGroup>
 </Project>
 ```

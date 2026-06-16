@@ -2,48 +2,160 @@ using System.Collections.Generic;
 using System.Linq;
 using DV;
 using DV.ThingTypes;
+using DV.ThingTypes.TransitionHelpers;
 
 namespace CustomDemonstrators;
+
+internal enum SlotKind
+{
+    Garage,
+    Demonstrator,
+    UtilityFlatcar
+}
 
 // Enforces the game's rule that exactly one livery can be spawned in the entire demonstrator/garage
 // pool. When the player picks a replacement that another slot already spawns, the two slots swap.
 internal static class GarageReplacements
 {
-    // The livery id a slot currently spawns: its configured replacement, else its own default.
+    // The restoration parts cargos (one per demonstrator). A replacement for the utility flatcar must
+    // be able to carry all of them, since the single flatcar hauls parts for whichever demonstrator.
+    // We also have inverse enforcement for custom restoration parts that they must be carriable by this
+    // (or any custom selected) flatcar, so those two rules should combine to ensure that any combination
+    // of custom flatcars or custom loco parts are UI-enforced to be usable.
+    private static readonly CargoType[] PartsCargoTypes =
+    [
+        CargoType.TrainPartsDE2, CargoType.TrainPartsDE6, CargoType.TrainPartsDH4,
+        CargoType.TrainPartsDM3, CargoType.TrainPartsS060, CargoType.TrainPartsS282A,
+    ];
+
     internal static string CurrentSpawnId(TrainCarLivery slot) =>
         Main.Settings.LiveryReplacements.TryGetValue(slot.id, out var r) && !string.IsNullOrEmpty(r)
             ? r
             : slot.id;
 
-    private static IEnumerable<(TrainCarLivery livery, bool isDemonstrator)> AllSlots() =>
-        GarageVehicles.Groups.SelectMany(g => g.liveries.Select(l => (l, g.isDemonstrator)));
+    internal static SlotKind KindFor(GarageType_v2 garage, bool isDemonstrator) =>
+        isDemonstrator ? SlotKind.Demonstrator
+        : garage.v1 == Garage.Museum_FlatbedShort ? SlotKind.UtilityFlatcar
+        : SlotKind.Garage;
+
+    private static IEnumerable<(TrainCarLivery livery, SlotKind kind)> AllSlots() =>
+        GarageVehicles.Groups.SelectMany(g => g.liveries.Select(l => (l, KindFor(g.garage, g.isDemonstrator))));
 
     private static TrainCarLivery? GetLivery(string id) =>
         Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == id);
 
-    // The other slot (if any) currently spawning targetId
-    private static (TrainCarLivery livery, bool isDemonstrator) ColliderFor(TrainCarLivery slot, string targetId) =>
+    private static (TrainCarLivery livery, SlotKind kind) ColliderFor(TrainCarLivery slot, string targetId) =>
         AllSlots().FirstOrDefault(s => s.livery.id != slot.id && CurrentSpawnId(s.livery) == targetId);
 
-    // True if another garage slot currently spawns candidateId
     internal static bool IsClaimedByOther(TrainCarLivery slot, string candidateId) =>
         ColliderFor(slot, candidateId).livery != null;
 
     // Whether offering `candidate` as `slot`'s spawn yields a valid configuration. Used to filter the
     // picker so the player is never shown a choice whose swap would corrupt a slot.
-    internal static bool CanSelect(TrainCarLivery slot, bool slotIsDemonstrator, TrainCarLivery candidate)
+    internal static bool CanSelect(TrainCarLivery slot, SlotKind slotKind, TrainCarLivery candidate)
     {
-        // A demonstrator can only spawn a locomotive (or its tender).
-        if (slotIsDemonstrator && !CarTypes.IsAnyLocomotiveOrTender(candidate))
+        if (!IsValidFor(slotKind, candidate))
             return false;
 
-        // Selecting a candidate another slot already spawns hands our current spawn to that slot.
-        // Don't allow a swap that would push a non-locomotive onto a demonstrator.
-        var (livery, isDemonstrator) = ColliderFor(slot, candidate.id);
-        if (livery != null && isDemonstrator)
+        // A car already serving as a demonstrator's tender can't also be a garage/loco spawn (the
+        // game allows a livery in only one garage), and tenders aren't swappable, so disallow it.
+        if (CurrentSpawnId(slot) != candidate.id && TenderIds().Contains(candidate.id))
+            return false;
+
+        // Selecting a candidate another slot already spawns trades our current spawn to that slot.
+        // Don't allow a swap that would push an invalid car onto a more restricted slot.
+        var (livery, colliderKind) = ColliderFor(slot, candidate.id);
+        if (livery != null && colliderKind != SlotKind.Garage)
         {
             var vacated = GetLivery(CurrentSpawnId(slot));
-            if (vacated == null || !CarTypes.IsAnyLocomotiveOrTender(vacated))
+            if (vacated == null || !IsValidFor(colliderKind, vacated))
+                return false;
+        }
+        return true;
+    }
+
+    private static bool IsValidFor(SlotKind kind, TrainCarLivery livery) => kind switch
+    {
+        SlotKind.Demonstrator => IsValidDemonstrator(livery),
+        SlotKind.UtilityFlatcar => CanCarryRestorationParts(livery),
+        _ => true,
+    };
+
+    // Demonstrator replacements are restricted to Custom Car Loader locos that are license-gated.
+    // The museum questline only fires if the locomotive is gated by a license so this is a hard requirement
+    // to make the questline work correctly. Non-licensed CCL locos can still be put in garages.
+    // 
+    // Swapping around the vanilla demonstrators would only serve to move them around in the roundhouse
+    // which is (imo) pretty much useless and not worth the UI clutter to add them into the selections.
+    internal static bool IsValidDemonstrator(TrainCarLivery livery) =>
+        CustomCarLoaderHelper.IsCustomCar(livery)
+        && CarTypes.IsLocomotive(livery) && livery.requiredLicense != null;
+
+    // The tender isn't license-gated by the restoration, it shares its blocker rules with its
+    // locomotive.
+    internal static bool IsValidTender(TrainCarLivery livery) =>
+        CustomCarLoaderHelper.IsCustomCar(livery) && CarTypes.IsTender(livery);
+
+    internal static TrainCarLivery? ResolveTender(string slotId, TrainCarLivery? originalTender)
+    {
+        var id = Main.Settings.GetTenderId(slotId);
+        return !string.IsNullOrEmpty(id) ? GetLivery(id!) : originalTender;
+    }
+
+    internal static bool CanSelectTender(TrainCarLivery primary, TrainCarLivery? originalTender, TrainCarLivery candidate)
+    {
+        if (!IsValidTender(candidate)) return false;
+        var current = ResolveTender(primary.id, originalTender);
+        if (current != null && current.id == candidate.id) return true;
+        return !AllSpawnedIds().Contains(candidate.id);
+    }
+
+    // Track the full set of configured spawns to ensure enforcement of exactly-one spawn in the combined
+    // demonstrator/garage pool.
+    internal static IEnumerable<string> AllSpawnedIds()
+    {
+        foreach (var (garage, isDemonstrator, liveries) in GarageVehicles.Groups)
+        {
+            if (isDemonstrator)
+            {
+                var primary = liveries.FirstOrDefault();
+                if (primary == null) continue;
+                yield return CurrentSpawnId(primary);
+                var second = ResolveTender(primary.id, GarageVehicles.OriginalTender(garage));
+                if (second != null) yield return second.id;
+            }
+            else
+            {
+                foreach (var livery in liveries)
+                    yield return CurrentSpawnId(livery);
+            }
+        }
+    }
+
+    // The resolved tender ids across all demonstrators, so the normal-garage picker can avoid
+    // handing out a livery that's already serving as a tender.
+    private static HashSet<string> TenderIds()
+    {
+        var ids = new HashSet<string>();
+        foreach (var (garage, isDemonstrator, liveries) in GarageVehicles.Groups)
+        {
+            if (!isDemonstrator) continue;
+            var primary = liveries.FirstOrDefault();
+            if (primary == null) continue;
+            var second = ResolveTender(primary.id, GarageVehicles.OriginalTender(garage));
+            if (second != null) ids.Add(second.id);
+        }
+        return ids;
+    }
+
+    internal static bool CanCarryRestorationParts(TrainCarLivery livery)
+    {
+        var carType = livery.parentType;
+        if (carType == null) return false;
+        foreach (var t in PartsCargoTypes)
+        {
+            var cargo = t.ToV2();
+            if (cargo != null && !cargo.IsLoadableOnCarType(carType))
                 return false;
         }
         return true;
