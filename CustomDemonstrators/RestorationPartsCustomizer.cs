@@ -47,6 +47,8 @@ internal static class RestorationPartsCustomizer
     // even if a name-matching cargo exists. Distinct from null (auto-detect) and a real cargo id.
     internal const string GenericCrateSentinel = "__cd_generic_crate__";
 
+    private const string RewrittenKeyPrefix = "customdemonstrators/parts/";
+
     internal static void ApplyCargo(LocoRestorationController controller, string slotId, TrainCarLivery? replacementLoco)
     {
         var choice = Main.Settings.GetPartsCargoId(slotId);
@@ -118,6 +120,9 @@ internal static class RestorationPartsCustomizer
         foreach (var cargo in cargos)
         {
             if (cargo == null || !GarageReplacements.CanBeRestorationParts(cargo)) continue;
+            // Don't detect a cargo we ourselves created
+            if (cargo.localizationKeyFull?.StartsWith(RewrittenKeyPrefix, StringComparison.Ordinal) == true)
+                continue;
             string cargoId = Normalize(cargo.id);
             string cargoName = Normalize(LocalizationAPI.L(cargo.localizationKeyFull));
 
@@ -159,8 +164,8 @@ internal static class RestorationPartsCustomizer
 
     private static void RenameToMatch(CargoType_v2 partsCargo, TrainCarLivery loco, Template template)
     {
-        string fullKey = $"customdemonstrators/parts/{loco.id}";
-        string shortKey = $"customdemonstrators/parts/{loco.id}_short";
+        string fullKey = $"{RewrittenKeyPrefix}{loco.id}";
+        string shortKey = $"{RewrittenKeyPrefix}{loco.id}_short";
 
         var fullItems = BuildSubstituted(template.FullKey, template.Token, loco);
         if (fullItems.Count > 0)
