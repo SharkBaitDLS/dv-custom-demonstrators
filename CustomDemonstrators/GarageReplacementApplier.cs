@@ -33,12 +33,19 @@ internal static class GarageReplacementApplier
         if (changed) types.RecalculateCaches();
     }
 
+    private static TrainCarLivery? GetLivery(string id) =>
+        Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == id);
+
     // The liveries a garage should spawn after overrides. A normal garage just does a simple replace.
     // A demonstrator garage is rebuilt from its primary loco plus its resolved tender if any.
     private static TrainCarLivery[] DesiredLiveries(GarageType_v2 garage)
     {
         if (!GarageVehicles.IsDemonstrator(garage.v1))
-            return [.. GarageVehicles.OriginalLiveries(garage).Select(l => Main.Settings.GetReplacement(l) ?? l)];
+        {
+            var replaced = GarageVehicles.OriginalLiveries(garage).Select(l => Main.Settings.GetReplacement(l) ?? l);
+            var extras = Main.Settings.GetExtraCars(garage.id).Select(GetLivery);
+            return [.. replaced.Concat(extras).Where(l => l != null)!];
+        }
 
         var primary = GarageVehicles.PrimaryLoco(garage);
         if (primary == null) return GarageVehicles.OriginalLiveries(garage);

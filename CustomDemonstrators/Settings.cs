@@ -18,6 +18,26 @@ public class Settings : UnityModManager.ModSettings
         set => LiveryReplacements = (value ?? []).ToDictionary(r => r.LiveryId, r => r.ReplacementId);
     }
 
+    // Extra cars appended to an ordinary garage's spawned consist, keyed by garage id. Lets a single
+    // garage spawn an arbitrary-length consist.
+    [XmlIgnore] internal Dictionary<string, List<string>> GarageExtraCars { get; set; } = [];
+
+    public GarageExtraEntry[] GarageExtras
+    {
+        get => [.. GarageExtraCars
+            .Where(kv => kv.Value is { Count: > 0 })
+            .Select(kv => new GarageExtraEntry { GarageId = kv.Key, LiveryIds = [.. kv.Value] })];
+        set => GarageExtraCars = (value ?? [])
+            .Where(e => !string.IsNullOrEmpty(e.GarageId))
+            .GroupBy(e => e.GarageId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.SelectMany(e => e.LiveryIds ?? [])
+                      .Where(s => !string.IsNullOrEmpty(s))
+                      .Distinct()
+                      .ToList());
+    }
+
     // Per-demonstrator quest tuning, keyed by the original demonstrator livery id
     [XmlIgnore] internal Dictionary<string, DemonstratorOverride> Demonstrators { get; set; } = [];
 
@@ -48,6 +68,26 @@ public class Settings : UnityModManager.ModSettings
         if (!LiveryReplacements.TryGetValue(original.id, out var replacementId)) return null;
         return Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == replacementId);
     }
+
+    // The extra consist liveries configured for a garage (beyond its replaced default car).
+    internal IReadOnlyList<string> GetExtraCars(string garageId) =>
+        GarageExtraCars.TryGetValue(garageId, out var l) ? l : [];
+
+    internal void AddExtraCar(string garageId, string liveryId)
+    {
+        if (!GarageExtraCars.TryGetValue(garageId, out var l))
+            GarageExtraCars[garageId] = l = [];
+        if (!l.Contains(liveryId)) l.Add(liveryId);
+    }
+
+    internal void RemoveExtraCar(string garageId, string liveryId)
+    {
+        if (!GarageExtraCars.TryGetValue(garageId, out var l)) return;
+        l.Remove(liveryId);
+        if (l.Count == 0) GarageExtraCars.Remove(garageId);
+    }
+
+    internal void ClearExtraCars(string garageId) => GarageExtraCars.Remove(garageId);
 
     internal string? GetTenderId(string slotId) =>
         Demonstrators.TryGetValue(slotId, out var o) ? o.TenderId : null;
@@ -101,6 +141,12 @@ public class Settings : UnityModManager.ModSettings
     {
         [XmlAttribute] public string LiveryId { get; set; } = "";
         [XmlAttribute] public string ReplacementId { get; set; } = "";
+    }
+
+    public class GarageExtraEntry
+    {
+        [XmlAttribute] public string GarageId { get; set; } = "";
+        [XmlArray("Cars"), XmlArrayItem("Car")] public string[] LiveryIds { get; set; } = [];
     }
 
     public class DemonstratorEntry

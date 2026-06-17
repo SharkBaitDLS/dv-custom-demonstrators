@@ -31,6 +31,10 @@ internal static class SettingsGUI
     private static Vector2 _tenderScroll;
     private static string _tenderSearch = "";
 
+    private static string? _openExtraPickerFor;
+    private static Vector2 _extraScroll;
+    private static string _extraSearch = "";
+
     // Edit buffers for the price text fields, keyed by "<slotId>:order" / "<slotId>:install"
     private static readonly Dictionary<string, string> _priceText = [];
 
@@ -90,6 +94,8 @@ internal static class SettingsGUI
                 if (kind == SlotKind.Demonstrator)
                     DrawDemonstratorExtras(garage, livery);
             }
+            if (!isDemonstrator)
+                DrawGarageExtras(garage);
         }
         GUILayout.Space(2);
         GUILayout.EndVertical();
@@ -179,6 +185,76 @@ internal static class SettingsGUI
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
         GUILayout.Space(4);
+    }
+
+    // Extra cars appended to the spawned consist beyond the default car.
+    private static void DrawGarageExtras(GarageType_v2 garage)
+    {
+        foreach (var id in Main.Settings.GetExtraCars(garage.id).ToList())
+        {
+            var lv = GetLiveryById(id);
+            string name = lv != null ? Loc(lv.localizationKey, lv.id) : $"? {id}";
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(20);
+            GUILayout.Label($"+ {name}  [{id}]", GUILayout.Width(300));
+            if (GUILayout.Button("Remove", GUILayout.Width(70)))
+                Main.Settings.RemoveExtraCar(garage.id, id);
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+
+        bool open = _openExtraPickerFor == garage.id;
+        GUILayout.BeginHorizontal();
+        GUILayout.Space(20);
+        if (GUILayout.Button(open ? "Add car ▲" : "Add car ▼", GUILayout.Width(140)))
+        {
+            _openExtraPickerFor = open ? null : garage.id;
+            _extraScroll = Vector2.zero;
+            _extraSearch = "";
+        }
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+
+        if (open)
+            DrawExtraPicker(garage);
+        GUILayout.Space(4);
+    }
+
+    private static void DrawExtraPicker(GarageType_v2 garage)
+    {
+        GUILayout.BeginVertical(GUI.skin.box);
+
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Search:", GUILayout.Width(50));
+        var newSearch = GUILayout.TextField(_extraSearch, GUILayout.ExpandWidth(true));
+        if (newSearch != _extraSearch)
+        {
+            _extraSearch = newSearch;
+            _extraScroll = Vector2.zero;
+        }
+        GUILayout.EndHorizontal();
+
+        _extraScroll = GUILayout.BeginScrollView(_extraScroll, GUILayout.Height(160));
+
+        foreach (var candidate in _candidateLiveries!)
+        {
+            if (!GarageReplacements.CanAddExtraCar(candidate)) continue;
+
+            string displayName = Loc(candidate.localizationKey, candidate.id);
+            if (_extraSearch.Length > 0
+                && !displayName.ToLower().Contains(_extraSearch.ToLower())
+                && !candidate.id.ToLower().Contains(_extraSearch.ToLower()))
+                continue;
+
+            if (GUILayout.Button($"{displayName}  [{candidate.id}]", GUILayout.ExpandWidth(true)))
+            {
+                Main.Settings.AddExtraCar(garage.id, candidate.id);
+                _openExtraPickerFor = null;
+            }
+        }
+
+        GUILayout.EndScrollView();
+        GUILayout.EndVertical();
     }
 
     private static string TenderLabel(string slotId, TrainCarLivery? originalTender)

@@ -62,6 +62,10 @@ internal static class GarageReplacements
         if (CurrentSpawnId(slot) != candidate.id && TenderIds().Contains(candidate.id))
             return false;
 
+        // Likewise a car already added as another garage's extra consist car has no swap partner.
+        if (CurrentSpawnId(slot) != candidate.id && ExtraCarIds().Contains(candidate.id))
+            return false;
+
         // Selecting a candidate another slot already spawns trades our current spawn to that slot.
         // Don't allow a swap that would push an invalid car onto a more restricted slot.
         var (livery, colliderKind) = ColliderFor(slot, candidate.id);
@@ -133,9 +137,38 @@ internal static class GarageReplacements
             {
                 foreach (var livery in liveries)
                     yield return CurrentSpawnId(livery);
+                foreach (var extra in Main.Settings.GetExtraCars(garage.id))
+                    yield return extra;
             }
         }
     }
+
+    // Liveries currently configured as a garage's extra consist cars.
+    private static HashSet<string> ExtraCarIds()
+    {
+        var ids = new HashSet<string>();
+        foreach (var (garage, isDemonstrator, _) in GarageVehicles.Groups)
+        {
+            if (isDemonstrator) continue;
+            foreach (var extra in Main.Settings.GetExtraCars(garage.id))
+                ids.Add(extra);
+        }
+        return ids;
+    }
+
+    // The id of the garage a slot livery belongs to, if any.
+    private static string? GarageIdForSlot(TrainCarLivery slot)
+    {
+        foreach (var (garage, isDemonstrator, liveries) in GarageVehicles.Groups)
+        {
+            if (isDemonstrator) continue;
+            if (liveries.Any(l => l != null && l.id == slot.id)) return garage.id;
+        }
+        return null;
+    }
+
+    internal static bool CanAddExtraCar(TrainCarLivery candidate) =>
+        !AllSpawnedIds().Contains(candidate.id);
 
     // The resolved tender ids across all demonstrators, so the normal-garage picker can avoid
     // handing out a livery that's already serving as a tender.
@@ -207,6 +240,11 @@ internal static class GarageReplacements
     // Applies a selection, swapping with any colliding slot to keep every spawn unique.
     internal static void Select(TrainCarLivery slot, string? newSpawnId)
     {
+        // Clearing the main car reverts the garage to vanilla, so its extra consist cars (which only make
+        // sense alongside a customized consist) go with it.
+        if (string.IsNullOrEmpty(newSpawnId) && GarageIdForSlot(slot) is string garageId)
+            Main.Settings.ClearExtraCars(garageId);
+
         string targetId = string.IsNullOrEmpty(newSpawnId) ? slot.id : newSpawnId!;
         string vacatedId = CurrentSpawnId(slot);
         if (targetId == vacatedId)
