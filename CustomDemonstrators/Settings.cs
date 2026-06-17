@@ -89,6 +89,8 @@ public class Settings : UnityModManager.ModSettings
 
     internal void ClearExtraCars(string garageId) => GarageExtraCars.Remove(garageId);
 
+    internal void ClearDemonstratorOverride(string slotId) => Demonstrators.Remove(slotId);
+
     internal string? GetTenderId(string slotId) =>
         Demonstrators.TryGetValue(slotId, out var o) ? o.TenderId : null;
 

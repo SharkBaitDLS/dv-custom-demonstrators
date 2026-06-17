@@ -3,6 +3,7 @@ using System.Linq;
 using DV;
 using DV.LocoRestoration;
 using DV.ThingTypes;
+using UnityEngine;
 
 namespace CustomDemonstrators;
 
@@ -35,6 +36,9 @@ internal static class GarageReplacementApplier
 
     private static TrainCarLivery? GetLivery(string id) =>
         Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == id);
+
+    private static GameObject? OriginalBlocker(TrainCarLivery? livery) =>
+        livery?.prefab?.GetComponentInChildren<LocoZoneBlocker>(includeInactive: true)?.gameObject;
 
     // The liveries a garage should spawn after overrides. A normal garage just does a simple replace.
     // A demonstrator garage is rebuilt from its primary loco plus its resolved tender if any.
@@ -72,18 +76,26 @@ internal static class GarageReplacementApplier
         if (replacementLoco != null)
             controller.locoLivery = replacementLoco;
 
+        if (replacementLoco != null && controller.locoBlockerPrefab == null)
+            controller.locoBlockerPrefab = OriginalBlocker(loco);
+
         RestorationPartsCustomizer.ApplyCargo(controller, slotId, replacementLoco);
 
         var tenderId = GarageReplacements.ResolveTender(slotId, tender);
         controller.secondCarLivery = tenderId;
 
-        // The prefabs for the loco blockers might not quite line up with the wrecks since
-        // they're built to the original demonstrator shapes but that's a small bit of jank
-        // that only matters until the player clears the licenses to be able to rerail the
-        // wreck. I'm not sure it's worth figuring out how to dynamically generate a blocker
-        // that precisely masks the given selected locomotive and/or tender.
-        if (tenderId != null && controller.secondCarBlockerPrefab == null)
-            controller.secondCarBlockerPrefab = controller.locoBlockerPrefab;
+        if (tenderId != null)
+        {
+            // To get the tender to display the demonstrator message, it has to inherit the license of the
+            // locomotive. Most CCL mod authors don't license the tender, just the loco. Patch that for them.
+            var effectiveLoco = controller.locoLivery;
+            if (tenderId.requiredLicense == null && effectiveLoco?.requiredLicense != null)
+                tenderId.requiredLicense = effectiveLoco.requiredLicense;
+
+            // Ensure a blocker prefab exists at all (the tender's own, else the loco's).
+            if (controller.secondCarBlockerPrefab == null)
+                controller.secondCarBlockerPrefab = OriginalBlocker(tender) ?? OriginalBlocker(loco) ?? controller.locoBlockerPrefab;
+        }
 
         // Price overrides. < 0 / unset = default.
         var orderPrice = Main.Settings.GetOrderPrice(slotId);

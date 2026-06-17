@@ -240,10 +240,12 @@ internal static class GarageReplacements
     // Applies a selection, swapping with any colliding slot to keep every spawn unique.
     internal static void Select(TrainCarLivery slot, string? newSpawnId)
     {
-        // Clearing the main car reverts the garage to vanilla, so its extra consist cars (which only make
-        // sense alongside a customized consist) go with it.
-        if (string.IsNullOrEmpty(newSpawnId) && GarageIdForSlot(slot) is string garageId)
-            Main.Settings.ClearExtraCars(garageId);
+        if (string.IsNullOrEmpty(newSpawnId))
+        {
+            if (GarageIdForSlot(slot) is string garageId)
+                Main.Settings.ClearExtraCars(garageId);
+            Main.Settings.ClearDemonstratorOverride(slot.id);
+        }
 
         string targetId = string.IsNullOrEmpty(newSpawnId) ? slot.id : newSpawnId!;
         string vacatedId = CurrentSpawnId(slot);
