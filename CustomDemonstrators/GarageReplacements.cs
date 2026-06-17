@@ -99,8 +99,13 @@ internal static class GarageReplacements
     internal static TrainCarLivery? ResolveTender(string slotId, TrainCarLivery? originalTender)
     {
         var id = Main.Settings.GetTenderId(slotId);
-        return !string.IsNullOrEmpty(id) ? GetLivery(id!) : originalTender;
+        if (!string.IsNullOrEmpty(id)) return GetLivery(id!);
+        return IsPrimaryReplaced(slotId) ? null : originalTender;
     }
+
+    private static bool IsPrimaryReplaced(string slotId) =>
+        Main.Settings.LiveryReplacements.TryGetValue(slotId, out var r)
+        && !string.IsNullOrEmpty(r) && r != slotId;
 
     internal static bool CanSelectTender(TrainCarLivery primary, TrainCarLivery? originalTender, TrainCarLivery candidate)
     {
