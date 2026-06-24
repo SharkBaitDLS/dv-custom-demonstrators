@@ -79,16 +79,14 @@ internal static class GarageReplacementApplier
     {
         if (!SaveGuard.AllowDemonstratorChanges()) return;
 
-        var loco = controller.locoLivery;
-        var tender = controller.secondCarLivery;
+        var loco = OriginalLoco(controller);
+        var tender = OriginalTender(controller);
 
-        // The slot identity is the ORIGINAL demonstrator livery id so that we have a consistent
-        // primary key for each slot in the roundhouse.
         string slotId = loco?.id ?? "";
 
         var replacementLoco = loco != null ? Main.Settings.GetReplacement(loco) : null;
-        if (replacementLoco != null)
-            controller.locoLivery = replacementLoco;
+        if (loco != null)
+            controller.locoLivery = replacementLoco ?? loco; // revert to vanilla when the override is cleared
 
         if (replacementLoco != null && controller.locoBlockerPrefab == null)
             controller.locoBlockerPrefab = OriginalBlocker(loco);
@@ -141,12 +139,18 @@ internal static class GarageReplacementApplier
 
     private static bool SpawnMatchesSettings(LocoRestorationController controller)
     {
-        var loco = controller.locoLivery;
+        var loco = OriginalLoco(controller);
         if (loco == null) return true;
         var desiredLoco = Main.Settings.GetReplacement(loco) ?? loco;
-        var desiredTender = GarageReplacements.ResolveTender(loco.id, controller.secondCarLivery);
-        return loco == desiredLoco && controller.secondCarLivery == desiredTender;
+        var desiredTender = GarageReplacements.ResolveTender(loco.id, OriginalTender(controller));
+        return controller.locoLivery == desiredLoco && controller.secondCarLivery == desiredTender;
     }
+
+    private static TrainCarLivery? OriginalLoco(LocoRestorationController controller) =>
+        controller.garageSpawner?.garageType is GarageType_v2 g ? GarageVehicles.PrimaryLoco(g) : controller.locoLivery;
+
+    private static TrainCarLivery? OriginalTender(LocoRestorationController controller) =>
+        controller.garageSpawner?.garageType is GarageType_v2 g ? GarageVehicles.OriginalTender(g) : null;
 
     // For an unfinished restoration, deleting the wreck fires LocoRestorationController.OnUnexpectedDestroy,
     // which deletes any paired tender, tears down the quest state, and respawns it as a wreck
@@ -199,7 +203,7 @@ internal static class GarageReplacementApplier
             point?.pointUsed = false;
         }
         controller.StartCoroutine(
-            (IEnumerator) AccessTools.Method(typeof(LocoRestorationController), "Start")
+            (IEnumerator)AccessTools.Method(typeof(LocoRestorationController), "Start")
                     .Invoke(controller, null));
     }
 
@@ -288,5 +292,5 @@ internal static class GarageReplacementApplier
     }
 
     private static T DelegateFor<T>(object target, string method) where T : Delegate =>
-        (T) Delegate.CreateDelegate(typeof(T), target, AccessTools.Method(target.GetType(), method));
+        (T)Delegate.CreateDelegate(typeof(T), target, AccessTools.Method(target.GetType(), method));
 }

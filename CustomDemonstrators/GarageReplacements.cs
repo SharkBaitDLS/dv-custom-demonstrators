@@ -260,6 +260,12 @@ internal static class GarageReplacements
         if (livery != null)
             SetSpawn(livery, vacatedId);
 
+        RestorationPartsCustomizer.RevertSlotCargo(slot.id);
+        if (livery != null)
+        {
+            RestorationPartsCustomizer.RevertSlotCargo(livery.id);
+        }
+
         PruneInvalidCargoOverrides();
     }
 

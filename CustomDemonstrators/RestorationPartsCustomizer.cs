@@ -13,11 +13,26 @@ using DVLangHelper.Data;
 using DVLangHelper.Runtime;
 using HarmonyLib;
 using I2.Loc;
+using UnityEngine;
 
 namespace CustomDemonstrators;
 
 internal static class RestorationPartsCustomizer
 {
+    // The pristine parts-cargo state per demonstrator SLOT (keyed by the original demonstrator loco id),
+    // captured before we first customize. Keyed by slot (not controller) so the settings layer can revert
+    // it the moment an override changes — making the GUI's auto-detect row reflect it immediately, not
+    // only on respawn/reload.
+    private sealed class CargoSnapshot(CargoType_v2 cargo, string? fullKey, string? shortKey, GameObject[][] variants)
+    {
+        public readonly CargoType_v2 Cargo = cargo;
+        public readonly string? FullKey = fullKey;
+        public readonly string? ShortKey = shortKey;
+        public readonly GameObject[][] Variants = variants; // parallel to Cargo.loadableCarTypes
+    }
+
+    private static readonly Dictionary<string, CargoSnapshot> _snapshots = [];
+
     // The parts string template to derive a replaced demonstrator's name from. The DM3 ("DM3 Drivetrain")
     // is the generic default while steam locos use the S060 ("S060 Boiler"). Token is the
     // loco-code substring we replace with the new loco's name.
@@ -51,6 +66,8 @@ internal static class RestorationPartsCustomizer
 
     internal static void ApplyCargo(LocoRestorationController controller, string slotId, TrainCarLivery? replacementLoco)
     {
+        EnsureSnapshot(slotId, controller.locoPartCargo);
+
         var choice = Main.Settings.GetPartsCargoId(slotId);
 
         if (!string.IsNullOrEmpty(choice) && choice != GenericCrateSentinel)
@@ -71,7 +88,13 @@ internal static class RestorationPartsCustomizer
                 + "(cargo missing or not loadable on the parts flatcar); falling back to auto-detect.");
         }
 
-        if (replacementLoco == null || controller.locoPartCargo == null) return;
+        // Reverting back to vanilla quest state
+        if (replacementLoco == null)
+        {
+            RevertCargo(controller, slotId);
+            return;
+        }
+        if (controller.locoPartCargo == null) return;
 
         if (choice != GenericCrateSentinel)
         {
@@ -99,6 +122,44 @@ internal static class RestorationPartsCustomizer
         controller.orderPartsModule?.localizationKey = key!;
         controller.installPartsModule?.localizationKey = key!;
     }
+
+    private static void EnsureSnapshot(string slotId, CargoType_v2? cargo)
+    {
+        if (string.IsNullOrEmpty(slotId) || cargo == null || _snapshots.ContainsKey(slotId)) return;
+        var variants = cargo.loadableCarTypes?.Select(li => li.cargoPrefabVariants).ToArray() ?? [];
+        _snapshots[slotId] = new CargoSnapshot(cargo, cargo.localizationKeyFull, cargo.localizationKeyShort, variants);
+    }
+
+    internal static void RevertSlotCargo(string slotId)
+    {
+        if (!_snapshots.TryGetValue(slotId, out var snap)) return;
+        if (snap.Cargo.localizationKeyFull == snap.FullKey) return;
+
+        snap.Cargo.localizationKeyFull = snap.FullKey;
+        snap.Cargo.localizationKeyShort = snap.ShortKey;
+
+        var loadables = snap.Cargo.loadableCarTypes;
+        if (loadables != null)
+        {
+            for (int i = 0; i < loadables.Length && i < snap.Variants.Length; i++)
+            {
+                loadables[i].cargoPrefabVariants = snap.Variants[i];
+            }
+        }
+        _prefabCacheField?.SetValue(snap.Cargo, null); // force TrainCargoToCargoPrefabs to rebuild
+    }
+
+    private static void RevertCargo(LocoRestorationController controller, string slotId)
+    {
+        if (!_snapshots.TryGetValue(slotId, out var snap)) return;
+        if (controller.locoPartCargo == snap.Cargo && snap.Cargo.localizationKeyFull == snap.FullKey) return;
+
+        RevertSlotCargo(slotId);
+        controller.locoPartCargo = snap.Cargo;
+        SyncRegisterNames(controller);
+    }
+
+    internal static void Reset() => _snapshots.Clear();
 
     internal static CargoType_v2? FindCargo(string id) =>
         Globals.G?.Types?.cargos?.FirstOrDefault(c => c != null && c.id == id);

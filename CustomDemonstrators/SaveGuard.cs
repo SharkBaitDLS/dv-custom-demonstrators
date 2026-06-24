@@ -51,10 +51,19 @@ internal static class SaveGuard
         return true;
     }
 
-    internal static bool IsDemonstratorBlocking => SaveState.Data() != null && !AllowDemonstratorChanges();
     internal static bool IsGarageBlocking => SaveState.Data() != null && !AllowGarageChanges();
 
-    internal static void ResetForNewSave()
+    internal static bool IsDemonstratorOutOfSync => OutOfSync(DemonstratorFingerprintKey, DemonstratorFingerprint);
+    internal static bool IsGarageOutOfSync => OutOfSync(GarageFingerprintKey, GarageFingerprint);
+
+    private static bool OutOfSync(string key, Func<string> fingerprint)
+    {
+        var data = SaveState.Data();
+        if (data == null || SaveState.IsNewSession) return false;
+        return data.GetString(key) != fingerprint();
+    }
+
+    internal static void Invalidate()
     {
         _allowDemo = null;
         _forcedDemo = false;

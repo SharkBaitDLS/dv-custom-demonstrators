@@ -10,8 +10,9 @@ internal static class WorldStreamingInit_Awake_Patch
 {
     private static void Prefix()
     {
-        SaveGuard.ResetForNewSave();
+        SaveGuard.Invalidate();
         GarageOwnership.ResetForNewSave();
+        RestorationPartsCustomizer.Reset();
     }
 }
 

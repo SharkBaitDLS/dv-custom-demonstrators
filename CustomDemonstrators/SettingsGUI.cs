@@ -75,7 +75,7 @@ internal static class SettingsGUI
 
     private static void DrawSaveGuardNotice()
     {
-        if (SaveGuard.IsDemonstratorBlocking)
+        if (SaveGuard.IsDemonstratorOutOfSync)
         {
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label("Demonstrator changes are not in effect for this save because its demonstrator "
@@ -89,7 +89,7 @@ internal static class SettingsGUI
             GUILayout.Space(6);
         }
 
-        if (SaveGuard.IsGarageBlocking)
+        if (SaveGuard.IsGarageOutOfSync)
         {
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label("Garage changes are not in effect for this save because its garage settings differ "
