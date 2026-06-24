@@ -60,6 +60,8 @@ internal static class SettingsGUI
         GUILayout.Label(IntroText, GUILayout.ExpandWidth(true));
         GUILayout.Space(6);
 
+        DrawSaveGuardNotice();
+
 #if DEBUG
         DebugCheats.Draw();
 #endif
@@ -69,6 +71,36 @@ internal static class SettingsGUI
         DrawSection(Loc("license/museum_cs", "Museum"), groups.Where(g => g.isDemonstrator));
         GUILayout.Space(6);
         DrawSection(Loc("comms/mode_work_train", "Work Trains"), groups.Where(g => !g.isDemonstrator));
+    }
+
+    private static void DrawSaveGuardNotice()
+    {
+        if (SaveGuard.IsDemonstratorBlocking)
+        {
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label("Demonstrator changes are not in effect for this save because its demonstrator "
+                + "settings differ from the ones it was created with.");
+            if (GUILayout.Button("Force respawn demonstrators", GUILayout.Width(360)))
+                SaveGuard.ForceApplyDemonstrators();
+            GUILayout.Label("Each demonstrator respawns as a fresh wreck of your chosen replacement. Demonstrators "
+                + "you've already finished restoring are kept as owned by your player but will no longer be "
+                + "associated with a demonstrator slot in the museum or summonable by the comms radio.");
+            GUILayout.EndVertical();
+            GUILayout.Space(6);
+        }
+
+        if (SaveGuard.IsGarageBlocking)
+        {
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label("Garage changes are not in effect for this save because its garage settings differ "
+                + "from the ones it was created with.");
+            if (GUILayout.Button("Force respawn garages", GUILayout.Width(360)))
+                SaveGuard.ForceApplyGarages();
+            GUILayout.Label("Each opened garage respawns your chosen replacement. Cars you've already taken "
+                + "ownership of are kept as owned by your player but will no longer be summonable by the comms radio.");
+            GUILayout.EndVertical();
+            GUILayout.Space(6);
+        }
     }
 
     private static string Loc(string? key, string fallback) =>

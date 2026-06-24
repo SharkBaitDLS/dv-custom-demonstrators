@@ -27,6 +27,9 @@
 		<Reference Include="DV.Inventory">
 			<HintPath>$(ReferencePath)DV.Inventory.dll</HintPath>
 		</Reference>
+		<Reference Include="Newtonsoft.Json">
+			<HintPath>$(ReferencePath)Newtonsoft.Json.dll</HintPath>
+		</Reference>
 	</ItemGroup>
 
 	<!-- Language Helper -->

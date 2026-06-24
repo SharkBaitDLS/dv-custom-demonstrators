@@ -4,6 +4,17 @@ using HarmonyLib;
 
 namespace CustomDemonstrators;
 
+// Re-check the save guard whenever a save file is loaded
+[HarmonyPatch(typeof(WorldStreamingInit), "Awake")]
+internal static class WorldStreamingInit_Awake_Patch
+{
+    private static void Prefix()
+    {
+        SaveGuard.ResetForNewSave();
+        GarageOwnership.ResetForNewSave();
+    }
+}
+
 // Apply replacements before any consumer reads garage data. Unity's component init order between
 // these is undefined, so we patch all 3 methods. GarageReplacementApplier.Apply is idempotent so
 // we'll still only do the actual work once from whichever patch gets invoked first.
