@@ -251,17 +251,8 @@ internal static class GarageReplacementApplier
         }
     }
 
-    private static GarageCarSpawner? SpawnerFor(GarageType_v2 garage)
-    {
-        foreach (var l in GarageVehicles.OriginalLiveries(garage))
-        {
-            if (l != null && GarageCarSpawner.Spawners.TryGetValue(l, out var spawner))
-            {
-                return spawner;
-            }
-        }
-        return null;
-    }
+    private static GarageCarSpawner? SpawnerFor(GarageType_v2 garage) =>
+        GarageCarSpawner.Spawners.Values.FirstOrDefault(s => s.garageType == garage);
 
     private static void ReconcileGarage(GarageCarSpawner spawner)
     {
@@ -288,9 +279,23 @@ internal static class GarageReplacementApplier
                 kept.Add(match);
             }
         }
+        var deletedBlockers = new List<TrainCar>();
         foreach (var car in current)
         {
-            if (car != null && !kept.Contains(car)) UnparentGarageCar(car, spawner);
+            if (car == null || kept.Contains(car)) continue;
+
+            // A car still parked on its spawn point would block the replacement from spawning.
+            // Generally speaking if someone has unlocked a garage they've probably either moved what's
+            // within, or if they left it untouched they are likely fine with its replacement removing it.
+            if (IsParkedAtHome(car, spawner))
+            {
+                DeleteGarageCar(car, spawner);
+                deletedBlockers.Add(car);
+            }
+            else
+            {
+                UnparentGarageCar(car, spawner);
+            }
         }
 
         // Re-point the static livery->spawner registry from the stale liveries to the desired ones.
@@ -304,7 +309,28 @@ internal static class GarageReplacementApplier
         }
 
         spawner.garageCars = rebuilt;
-        spawner.ForceCarsRespawn();
+
+        // A deleted car's collider lingers until Object.Destroy runs at the end of the frame, so wait until
+        // the blockers are actually gone before respawning.
+        if (deletedBlockers.Count > 0)
+        {
+            SingletonBehaviour<CoroutineManager>.Instance.Run(RespawnAfterBlockersGone(spawner, deletedBlockers));
+        }
+        else
+        {
+            spawner.ForceCarsRespawn();
+        }
+    }
+
+    private static IEnumerator RespawnAfterBlockersGone(GarageCarSpawner spawner, List<TrainCar> blockers)
+    {
+        for (int i = 0; i < 10 && blockers.Any(c => c != null); i++)
+        {
+            yield return null;
+        }
+        if (spawner == null) yield break;
+        var spawned = spawner.ForceCarsRespawn();
+        Main.Logger.Log($"Garage respawn after clearing blockers spawned {spawned?.Count ?? 0} car(s).");
     }
 
     private static void UnparentGarageCar(TrainCar car, GarageCarSpawner spawner)
@@ -312,6 +338,24 @@ internal static class GarageReplacementApplier
         var home = car.GetComponent<HomeGarageReference>();
         if (home != null) UnityEngine.Object.Destroy(home);
         car.OnDestroyCar -= DelegateFor<Action<TrainCar>>(spawner, "OnGarageCarDeleted");
+    }
+
+    private const float HomeSpawnRadius = 75f;
+
+    private static bool IsParkedAtHome(TrainCar car, GarageCarSpawner spawner)
+    {
+        if (spawner.locoSpawnPoint == null) return false;
+        var offset = car.transform.position - spawner.locoSpawnPoint.transform.position;
+        return offset.sqrMagnitude < HomeSpawnRadius * HomeSpawnRadius;
+    }
+
+    private static void DeleteGarageCar(TrainCar car, GarageCarSpawner spawner)
+    {
+        Main.Logger.Log($"Deleting garage car {car.name} [{car.ID}] that was blocking its replacement from spawning.");
+        car.OnDestroyCar -= DelegateFor<Action<TrainCar>>(spawner, "OnGarageCarDeleted");
+        var home = car.GetComponent<HomeGarageReference>();
+        if (home != null) UnityEngine.Object.Destroy(home);
+        SingletonBehaviour<CarSpawner>.Instance.DeleteCar(car);
     }
 
     private static T DelegateFor<T>(object target, string method) where T : Delegate =>

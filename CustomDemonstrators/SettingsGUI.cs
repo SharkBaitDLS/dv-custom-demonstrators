@@ -97,8 +97,8 @@ internal static class SettingsGUI
                 + "from the ones it was created with.");
             if (GUILayout.Button("Force respawn garages", GUILayout.Width(360)))
                 SaveGuard.ForceApplyGarages();
-            GUILayout.Label("Each opened garage respawns your chosen replacement. Cars you've already taken "
-                + "ownership of are kept as owned by your player but will no longer be summonable by the comms radio.");
+            GUILayout.Label("Each opened garage respawns your chosen replacement. Cars you've already removed from an "
+                + "unlocked garage are kept as owned by your player but will no longer be summonable by the comms radio.");
             GUILayout.EndVertical();
             GUILayout.Space(6);
         }
