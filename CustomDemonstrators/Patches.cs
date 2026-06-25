@@ -13,6 +13,7 @@ internal static class WorldStreamingInit_Awake_Patch
         SaveGuard.Invalidate();
         GarageOwnership.ResetForNewSave();
         RestorationPartsCustomizer.Reset();
+        CommsRadioRefresher.Reset();
     }
 }
 
@@ -24,12 +25,18 @@ internal static class WorldStreamingInit_Awake_Patch
 internal static class GarageCarSpawner_Awake_Patch
 {
     private static void Prefix() => GarageReplacementApplier.Apply();
+
+    private static void Postfix() => CommsRadioRefresher.Refresh();
 }
 
 [HarmonyPatch(typeof(CommsRadioCrewVehicle), "Awake")]
 internal static class CommsRadioCrewVehicle_Awake_Patch
 {
     private static void Prefix() => GarageReplacementApplier.Apply();
+
+    // Capture the instance now: it can't be FindObjectOfType'd on demand once the radio is holstered
+    // (an inactive inventory item), which is exactly its state while we force a respawn from the menu.
+    private static void Postfix(CommsRadioCrewVehicle __instance) => CommsRadioRefresher.Capture(__instance);
 }
 
 [HarmonyPatch(typeof(LocoRestorationController), "Awake")]

@@ -79,6 +79,7 @@ internal static class SaveGuard
         GarageReplacementApplier.Apply();
         foreach (var controller in LocoRestorationController.allLocoRestorationControllers.ToList())
             GarageReplacementApplier.ReinitializeDemonstrator(controller);
+        CommsRadioRefresher.Refresh();
     }
 
     internal static void ForceApplyGarages()
@@ -88,6 +89,7 @@ internal static class SaveGuard
         AllowGarageChanges();
         GarageReplacementApplier.Apply();
         GarageReplacementApplier.ReinitializeGarages();
+        CommsRadioRefresher.Refresh();
     }
 
     internal static string DemonstratorFingerprint()
