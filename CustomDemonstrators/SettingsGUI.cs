@@ -42,7 +42,7 @@ internal static class SettingsGUI
         """
         Choose a replacement for each Demonstrator and Garage spawn. The chosen stock spawns in place of the default when a new save is created.
 
-        Demonstrator changes have no effect on existing save games, but any unopened Garages will reflect your choices.
+        If you load an existing save and your settings do not match what already exists in it, this mod will do nothing until you press the force respawn buttons below.
         """;
 
     internal static void OnGUI(UnityModManager.ModEntry entry)
@@ -82,7 +82,8 @@ internal static class SettingsGUI
                 + "settings differ from the ones it was created with.");
             if (GUILayout.Button("Force respawn demonstrators", GUILayout.Width(360)))
                 SaveGuard.ForceApplyDemonstrators();
-            GUILayout.Label("Each demonstrator respawns as a fresh wreck of your chosen replacement. Demonstrators "
+            GUILayout.Label("Each demonstrator respawns as a fresh wreck of your chosen replacement at a new random "
+                + "location. Any partial progress towards restoration will be lost. Demonstrators "
                 + "you've already finished restoring are kept as owned by your player but will no longer be "
                 + "associated with a demonstrator slot in the museum or summonable by the comms radio.");
             GUILayout.EndVertical();
