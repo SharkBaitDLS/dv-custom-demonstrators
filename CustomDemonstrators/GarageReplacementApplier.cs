@@ -5,6 +5,7 @@ using System.Linq;
 using DV;
 using DV.Garages;
 using DV.LocoRestoration;
+using DV.Shops;
 using DV.ThingTypes;
 using DV.Utils;
 using HarmonyLib;
@@ -153,21 +154,41 @@ internal static class GarageReplacementApplier
         controller.garageSpawner?.garageType is GarageType_v2 g ? GarageVehicles.OriginalTender(g) : null;
 
     // For an unfinished restoration, deleting the wreck fires LocoRestorationController.OnUnexpectedDestroy,
-    // which deletes any paired tender, tears down the quest state, and respawns it as a wreck
-    // via its Start() coroutine. Since we've rewritten the controller metadata at this point,
-    // this will effectively cause our desired one to respawn.
+    // which tears down the quest state and respawns it as a wreck via its Start() coroutine. Since we've
+    // rewritten the controller metadata at this point, this will effectively cause our desired one to respawn.
     private static void RespawnWreck(LocoRestorationController controller)
     {
-        var loco = Traverse.Create(controller).Field("loco").GetValue<TrainCar>();
+        var t = Traverse.Create(controller);
+        var loco = t.Field("loco").GetValue<TrainCar>();
         if (loco == null) return;
+
+        ClearRegister(controller.orderPartsModule);
+        ClearRegister(controller.installPartsModule);
 
         foreach (var point in controller.spawnPoints)
         {
             point?.pointUsed = false;
         }
 
-        loco.preventDelete = false;
-        SingletonBehaviour<CarSpawner>.Instance.DeleteCar(loco);
+        // Tearing down the tender cascades to the parent loco, but not visa versa,
+        // so we attempt to delete that if it exists.
+        var secondCar = t.Field("secondCar").GetValue<TrainCar>();
+        if (secondCar != null)
+        {
+            secondCar.preventDelete = false;
+            SingletonBehaviour<CarSpawner>.Instance.DeleteCar(secondCar);
+        }
+        else
+        {
+            loco.preventDelete = false;
+            SingletonBehaviour<CarSpawner>.Instance.DeleteCar(loco);
+        }
+    }
+
+    private static void ClearRegister(GenericThingCashRegisterModule? module)
+    {
+        if (module == null) return;
+        AccessTools.Method(module.GetType(), "SetUnitsToBuy", [typeof(float)])?.Invoke(module, [0f]);
     }
 
     // For a completed restoration we keep the finished loco as a normal player-owned car (just no longer
