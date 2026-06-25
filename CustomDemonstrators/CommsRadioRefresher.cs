@@ -23,6 +23,8 @@ internal static class CommsRadioRefresher
         }
         if (_radio == null) return;
 
+        Main.Logger.Log("Force refreshing comms radio with updated spawn lists");
+
         _update ??= AccessTools.Method(typeof(CommsRadioCrewVehicle), "UpdateAvailableVehicles");
         _update?.Invoke(_radio, null);
     }

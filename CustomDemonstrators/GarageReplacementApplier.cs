@@ -170,6 +170,7 @@ internal static class GarageReplacementApplier
             point?.pointUsed = false;
         }
 
+        Main.Logger.Log($"Destroying demonstrator {loco.name} [{loco.ID}] to force a respawn.");
         // Tearing down the tender cascades to the parent loco, but not visa versa,
         // so we attempt to delete that if it exists.
         var secondCar = t.Field("secondCar").GetValue<TrainCar>();
@@ -199,6 +200,7 @@ internal static class GarageReplacementApplier
         var loco = t.Field("loco").GetValue<TrainCar>();
         var secondCar = t.Field("secondCar").GetValue<TrainCar>();
         var garage = controller.garageSpawner;
+        Main.Logger.Log($"Detected restored demonstrator {loco.name} [{loco.ID}], preserving it before spawning its replacement.");
 
         // Stop the controller from reacting to a transition to S10/painted
         AccessTools.Method(typeof(LocoRestorationController), "SetupListenersForPaintJob", [typeof(bool)])
