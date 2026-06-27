@@ -128,6 +128,8 @@ internal static class GarageReplacementApplier
 
         if (spawnMatches) return;
 
+        var oldLoco = Traverse.Create(controller).Field("loco").GetValue<TrainCar>();
+
         if (controller.State >= LocoRestorationController.RestorationState.S9_LocoServiced)
         {
             DetachFinishedLocoAndRespawn(controller);
@@ -135,6 +137,43 @@ internal static class GarageReplacementApplier
         else
         {
             RespawnWreck(controller);
+        }
+
+        SingletonBehaviour<CoroutineManager>.Instance.Run(HideRespawnedWreckOnMap(controller, oldLoco));
+    }
+
+    // Respawning can end up racing against the controller reinitializing and leave the map marker un-hidden
+    // for the new wreck, poll until it's spawned and make sure it's actually hidden.
+    private static IEnumerator HideRespawnedWreckOnMap(LocoRestorationController controller, TrainCar? oldLoco)
+    {
+        var t = Traverse.Create(controller);
+        TrainCar? loco = null;
+        for (int i = 0; i < 300 && (loco == null || loco == oldLoco); i++)
+        {
+            yield return null;
+            loco = t.Field("loco").GetValue<TrainCar>();
+        }
+        // Respawn failed for whatever reason, don't hide the old locomotive
+        if (loco == null || loco == oldLoco
+            || controller.State >= LocoRestorationController.RestorationState.S9_LocoServiced)
+        {
+            Main.Logger.Warning($"Failed to spawn a new demonstrator wreck for {controller.name}");
+            yield break;
+        }
+
+        HideOnMap(loco);
+        HideOnMap(t.Field("secondCar").GetValue<TrainCar>());
+    }
+
+    private static void HideOnMap(TrainCar? car)
+    {
+        if (car == null) return;
+
+        car.preventFastTravelDestination = true;
+        if (car.FastTravelDestination != null)
+        {
+            car.FastTravelDestination.showOnMap = false;
+            car.FastTravelDestination.RefreshMarkerVisibility();
         }
     }
 
