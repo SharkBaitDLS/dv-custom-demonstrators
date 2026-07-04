@@ -14,6 +14,7 @@ internal static class WorldStreamingInit_Awake_Patch
         GarageOwnership.ResetForNewSave();
         RestorationPartsCustomizer.Reset();
         CommsRadioRefresher.Reset();
+        SaveConfig.Reset();
     }
 }
 

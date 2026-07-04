@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using DV.LocoRestoration;
@@ -53,6 +54,15 @@ internal static class SaveGuard
 
     internal static bool IsGarageBlocking => SaveState.Data() != null && !AllowGarageChanges();
 
+    // The fingerprint the save was last saved with or null if the mod never touched this save
+    internal static string? StoredDemonstratorFingerprint => ReadStored(DemonstratorFingerprintKey);
+
+    private static string? ReadStored(string key)
+    {
+        var s = SaveState.Data()?.GetString(key);
+        return string.IsNullOrEmpty(s) ? null : s;
+    }
+
     internal static bool IsDemonstratorOutOfSync => OutOfSync(DemonstratorFingerprintKey, DemonstratorFingerprint);
     internal static bool IsGarageOutOfSync => OutOfSync(GarageFingerprintKey, GarageFingerprint);
 
@@ -94,18 +104,16 @@ internal static class SaveGuard
 
     internal static string DemonstratorFingerprint()
     {
-        var sb = new StringBuilder();
+        var entries = new List<(string PrimaryId, string SpawnId, string? TenderId)>();
         foreach (var (garage, isDemonstrator, liveries) in GarageVehicles.Groups)
         {
             if (!isDemonstrator) continue;
             var primary = liveries.FirstOrDefault();
             if (primary == null) continue;
             var tender = GarageReplacements.ResolveTender(primary.id, GarageVehicles.OriginalTender(garage));
-            sb.Append(primary.id).Append('>')
-              .Append(GarageReplacements.CurrentSpawnId(primary)).Append('+')
-              .Append(tender?.id ?? "-").Append(';');
+            entries.Add((primary.id, GarageReplacements.CurrentSpawnId(primary), tender?.id));
         }
-        return sb.ToString();
+        return SaveConfig.SerializeDemonstrators(entries);
     }
 
     internal static string GarageFingerprint()

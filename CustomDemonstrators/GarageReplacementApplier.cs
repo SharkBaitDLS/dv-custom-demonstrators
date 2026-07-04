@@ -62,15 +62,45 @@ internal static class GarageReplacementApplier
             return [.. replaced.Concat(extras).Where(l => l != null)!];
         }
 
-        if (!SaveGuard.AllowDemonstratorChanges()) return GarageVehicles.OriginalLiveries(garage);
-
         var primary = GarageVehicles.PrimaryLoco(garage);
         if (primary == null) return GarageVehicles.OriginalLiveries(garage);
 
-        var desired = new List<TrainCarLivery> { Main.Settings.GetReplacement(primary) ?? primary };
-        var tender = GarageReplacements.ResolveTender(primary.id, GarageVehicles.OriginalTender(garage));
-        if (tender != null) desired.Add(tender);
+        if (!TryResolveDemonstrator(primary, GarageVehicles.OriginalTender(garage), primary.id,
+                out var replacementLoco, out var tenderLivery))
+        {
+            return GarageVehicles.OriginalLiveries(garage);
+        }
+
+        var desired = new List<TrainCarLivery> { replacementLoco ?? primary };
+        if (tenderLivery != null) desired.Add(tenderLivery);
         return [.. desired];
+    }
+
+    // Resolves the effective replacement loco + tender for a demonstrator slot. Uses the current settings
+    // when the guard allows changes, otherwise falls back to the state the save was already in, so
+    // saves reload their existing demonstrators instead of reverting to vanilla settings on mismatch.
+    // Only if the save has never been modified by this mod do we let vanilla rules apply.
+    private static bool TryResolveDemonstrator(
+        TrainCarLivery? loco, TrainCarLivery? originalTender, string slotId,
+        out TrainCarLivery? replacementLoco, out TrainCarLivery? tenderLivery)
+    {
+        if (SaveGuard.AllowDemonstratorChanges())
+        {
+            replacementLoco = loco != null ? Main.Settings.GetReplacement(loco) : null;
+            tenderLivery = GarageReplacements.ResolveTender(slotId, originalTender);
+            return true;
+        }
+
+        if (loco != null && SaveConfig.Demonstrators is { } baked && baked.TryGetValue(loco.id, out var e))
+        {
+            replacementLoco = e.SpawnId == loco.id ? null : GetLivery(e.SpawnId);
+            tenderLivery = e.TenderId != null ? GetLivery(e.TenderId) : null;
+            return true;
+        }
+
+        replacementLoco = null;
+        tenderLivery = null;
+        return false;
     }
 
     // Repoints a demonstrator's restoration controller at its replacement liveries, so the museum
@@ -78,14 +108,14 @@ internal static class GarageReplacementApplier
     // parts-cargo and price overrides.
     internal static void ApplyTo(LocoRestorationController controller)
     {
-        if (!SaveGuard.AllowDemonstratorChanges()) return;
-
         var loco = OriginalLoco(controller);
         var tender = OriginalTender(controller);
 
         string slotId = loco?.id ?? "";
 
-        var replacementLoco = loco != null ? Main.Settings.GetReplacement(loco) : null;
+        // Leave a save the mod never touched at its vanilla original
+        if (!TryResolveDemonstrator(loco, tender, slotId, out var replacementLoco, out var tenderId)) return;
+
         if (loco != null)
             controller.locoLivery = replacementLoco ?? loco; // revert to vanilla when the override is cleared
 
@@ -94,7 +124,6 @@ internal static class GarageReplacementApplier
 
         RestorationPartsCustomizer.ApplyCargo(controller, slotId, replacementLoco);
 
-        var tenderId = GarageReplacements.ResolveTender(slotId, tender);
         controller.secondCarLivery = tenderId;
 
         if (tenderId != null)
