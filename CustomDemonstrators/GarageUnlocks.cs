@@ -29,7 +29,7 @@ internal static class GarageUnlocks
         Main.Logger.Log($"Revoked the garage unlock for {garage.id}, its restoration has to be completed again.");
     }
 
-    private static LicenseManager? Manager() =>
+    internal static LicenseManager? Manager() =>
         typeof(SingletonBehaviour<LicenseManager>)
             .GetField("_instance", BindingFlags.NonPublic | BindingFlags.Static)?
             .GetValue(null) as LicenseManager;

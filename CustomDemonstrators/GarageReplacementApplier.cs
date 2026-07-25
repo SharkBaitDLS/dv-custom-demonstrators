@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using DV;
 using DV.Garages;
 using DV.LocoRestoration;
@@ -122,6 +123,12 @@ internal static class GarageReplacementApplier
         if (replacementLoco != null && controller.locoBlockerPrefab == null)
             controller.locoBlockerPrefab = OriginalBlocker(loco);
 
+        // The controller only subscribes to Unblocked when a blocker exists on the spawned car or can be
+        // instantiated from the prefab. With neither, a wreck reset to S0 can never advance on its own.
+        if (controller.locoBlockerPrefab == null && OriginalBlocker(controller.locoLivery) == null)
+            Main.Logger.Warning(
+                $"{controller.locoLivery?.id} has no loco zone blocker available, its restoration can't unblock itself.");
+
         RestorationPartsCustomizer.ApplyCargo(controller, slotId, replacementLoco);
 
         controller.secondCarLivery = tenderId;
@@ -161,6 +168,7 @@ internal static class GarageReplacementApplier
 
         // Revoke ownership of the wreck "garage" which takes it out of the comms radio
         GarageUnlocks.Revoke(controller.garageSpawner?.garageType);
+        SuppressPopups(controller);
 
         if (controller.State >= LocoRestorationController.RestorationState.S9_LocoServiced)
         {
@@ -171,30 +179,106 @@ internal static class GarageReplacementApplier
             RespawnWreck(controller);
         }
 
-        SingletonBehaviour<CoroutineManager>.Instance.Run(HideRespawnedWreckOnMap(controller, oldLoco));
+        SingletonBehaviour<CoroutineManager>.Instance.Run(FinishRespawn(controller, oldLoco));
     }
 
     // Respawning can end up racing against the controller reinitializing and leave the map marker un-hidden
     // for the new wreck, poll until it's spawned and make sure it's actually hidden.
-    private static IEnumerator HideRespawnedWreckOnMap(LocoRestorationController controller, TrainCar? oldLoco)
+    private static IEnumerator FinishRespawn(LocoRestorationController controller, TrainCar? oldLoco)
     {
         var t = Traverse.Create(controller);
-        TrainCar? loco = null;
-        for (int i = 0; i < 300 && (loco == null || loco == oldLoco); i++)
+        try
         {
-            yield return null;
-            loco = t.Field("loco").GetValue<TrainCar>();
+            TrainCar? loco = null;
+            for (int i = 0; i < 300 && (loco == null || loco == oldLoco); i++)
+            {
+                SuppressPopups(controller);
+                yield return null;
+                loco = t.Field("loco").GetValue<TrainCar>();
+            }
+            // Respawn failed for whatever reason, don't hide the old locomotive
+            if (loco == null || loco == oldLoco
+                || controller.State >= LocoRestorationController.RestorationState.S9_LocoServiced)
+            {
+                Main.Logger.Warning($"Failed to spawn a new demonstrator wreck for {controller.name}");
+                yield break;
+            }
+
+            HideOnMap(loco);
+            HideOnMap(t.Field("secondCar").GetValue<TrainCar>());
+
+
+            // Wait for the controller to settle before picking the wreck.
+            float lastStep = Time.fixedTime;
+            for (int steps = 0; steps < BlockerSettleSteps;)
+            {
+                if (controller.State != LocoRestorationController.RestorationState.S0_Initialized) yield break;
+                SuppressPopups(controller);
+                yield return null;
+                if (Time.fixedTime <= lastStep) continue;
+                lastStep = Time.fixedTime;
+                steps++;
+            }
+            var settled = t.Field("loco").GetValue<TrainCar>();
+            if (settled == null)
+            {
+                Main.Logger.Warning($"Demonstrator wreck for {controller.name} went missing while respawning");
+                yield break;
+            }
+
+            RescueStrandedState(controller);
         }
-        // Respawn failed for whatever reason, don't hide the old locomotive
-        if (loco == null || loco == oldLoco
-            || controller.State >= LocoRestorationController.RestorationState.S9_LocoServiced)
+        finally
         {
-            Main.Logger.Warning($"Failed to spawn a new demonstrator wreck for {controller.name}");
-            yield break;
+            RestorePopups(controller);
+        }
+    }
+
+    // Physics steps, not rendered frames, so if a user pauses the game while interacting with UMM
+    // we still wait until they unpause and the game logic resumes.
+    private const int BlockerSettleSteps = 30;
+
+    private static readonly FieldInfo? LoadingDoneField =
+        AccessTools.Field(typeof(LocoRestorationController), "loadingDone");
+
+    // The controller only shows its museum quest popups once loadingDone is set, and the game itself
+    // clears the flag around LoadData to keep a state restore quiet. We borrow the same trick rather
+    // than replaying all the popups at the player.
+    private static void SuppressPopups(LocoRestorationController controller) =>
+        LoadingDoneField?.SetValue(controller, false);
+
+    private static void RestorePopups(LocoRestorationController controller) =>
+        LoadingDoneField?.SetValue(controller, true);
+
+    // Indeterminate respawn states can leave a wreck in S0 if it didn't detect the correct license
+    // ownership upon spawn. We check ourselves and nudge it through if it got stuck.
+    private static void RescueStrandedState(LocoRestorationController controller)
+    {
+        if (controller.State != LocoRestorationController.RestorationState.S0_Initialized) return;
+
+        var manager = GarageUnlocks.Manager();
+        if (manager == null) return;
+
+        // Still legitimately locked behind the restoration license
+        var restorationLicense = controller.requiredRestorationLicense;
+        if (restorationLicense == null || !manager.IsGeneralLicenseAcquired(restorationLicense)) return;
+
+        string id = controller.locoLivery?.id ?? controller.name;
+
+        // Still legitimately locked behind the locomotive license
+        var locoLicense = controller.locoLivery?.requiredLicense;
+        if (locoLicense != null && !manager.IsGeneralLicenseAcquired(locoLicense))
+        {
+            AccessTools.Method(typeof(LocoRestorationController), "SetState")
+                ?.Invoke(controller, [LocoRestorationController.RestorationState.S1_UnlockedRestorationLicense]);
+            Main.Logger.Log($"{id} still needs its own license, advanced the restoration to S1.");
+            return;
         }
 
-        HideOnMap(loco);
-        HideOnMap(t.Field("secondCar").GetValue<TrainCar>());
+        // Shit's fucked yo
+        Main.Logger.Warning($"{id} holds every license it needs but stayed at S0, unblocking it directly so its restoration isn't stuck.");
+        AccessTools.Method(typeof(LocoRestorationController), "OnBlockersRemoved", [typeof(bool)])
+            ?.Invoke(controller, [true]);
     }
 
     private static void HideOnMap(TrainCar? car)
