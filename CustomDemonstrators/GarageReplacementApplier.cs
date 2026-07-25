@@ -159,6 +159,9 @@ internal static class GarageReplacementApplier
 
         var oldLoco = Traverse.Create(controller).Field("loco").GetValue<TrainCar>();
 
+        // Revoke ownership of the wreck "garage" which takes it out of the comms radio
+        GarageUnlocks.Revoke(controller.garageSpawner?.garageType);
+
         if (controller.State >= LocoRestorationController.RestorationState.S9_LocoServiced)
         {
             DetachFinishedLocoAndRespawn(controller);
