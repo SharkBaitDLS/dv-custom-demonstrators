@@ -317,6 +317,8 @@ internal static class GarageReplacementApplier
         var loco = t.Field("loco").GetValue<TrainCar>();
         if (loco == null) return;
 
+        var secondCar = t.Field("secondCar").GetValue<TrainCar>();
+
         ClearRegister(controller.orderPartsModule);
         ClearRegister(controller.installPartsModule);
 
@@ -325,10 +327,12 @@ internal static class GarageReplacementApplier
             point?.pointUsed = false;
         }
 
+        DestroyStaleBlockers(loco);
+        DestroyStaleBlockers(secondCar);
+
         Main.Logger.Log($"Destroying demonstrator {loco.name} [{loco.ID}] to force a respawn.");
         // Tearing down the tender cascades to the parent loco, but not visa versa,
         // so we attempt to delete that if it exists.
-        var secondCar = t.Field("secondCar").GetValue<TrainCar>();
         if (secondCar != null)
         {
             secondCar.preventDelete = false;
@@ -345,6 +349,30 @@ internal static class GarageReplacementApplier
     {
         if (module == null) return;
         AccessTools.Method(module.GetType(), "SetUnitsToBuy", [typeof(float)])?.Invoke(module, [0f]);
+    }
+
+    private static readonly FieldInfo? BlockerTrainField =
+        AccessTools.Field(typeof(LocoZoneBlocker), "train");
+
+    // A blocked wreck's LocoZoneBlocker parents itself to the loco's interior transform, which isn't
+    // loaded while the cab is blocked, so the blocker sits at the scene root rather than inside the car
+    // hierarchy. Deleting the car therefore leaves the blocker alive and still subscribed to
+    // LicenseManager.LicenseAcquired, and the next license purchase throws NREs from its dead references
+    // in the middle of the event invocation, potentially leading to save corruption if any other mods
+    // have active patching logic in that chain such as Career Rework.
+    private static void DestroyStaleBlockers(TrainCar? car)
+    {
+        if (car == null) return;
+
+        foreach (var blocker in UnityEngine.Object.FindObjectsOfType<LocoZoneBlocker>())
+        {
+            if (BlockerTrainField?.GetValue(blocker) as TrainCar != car) continue;
+
+            Main.Logger.Log($"Destroying the zone blocker for {car.name} [{car.ID}] along with the car.");
+            if (blocker.blockerObjectsParent != null)
+                UnityEngine.Object.Destroy(blocker.blockerObjectsParent);
+            UnityEngine.Object.Destroy(blocker.gameObject);
+        }
     }
 
     // For a completed restoration we keep the finished loco as a normal player-owned car (just no longer
@@ -510,6 +538,7 @@ internal static class GarageReplacementApplier
         car.OnDestroyCar -= DelegateFor<Action<TrainCar>>(spawner, "OnGarageCarDeleted");
         var home = car.GetComponent<HomeGarageReference>();
         if (home != null) UnityEngine.Object.Destroy(home);
+        DestroyStaleBlockers(car);
         SingletonBehaviour<CarSpawner>.Instance.DeleteCar(car);
     }
 
