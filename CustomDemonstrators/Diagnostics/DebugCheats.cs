@@ -8,7 +8,7 @@ using DV.Utils;
 using HarmonyLib;
 using UnityEngine;
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.Diagnostics;
 
 // Cheat menu items for convenience when testing
 internal static class DebugCheats

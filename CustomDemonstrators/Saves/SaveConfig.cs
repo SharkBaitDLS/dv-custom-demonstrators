@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.Saves;
 
 // Owns the on-disk format of the demonstrator save fingerprint and can parse it into the mod's config
 // so that we can safely adopt an existing save file's configuration when the mod's settings have diverged

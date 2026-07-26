@@ -3,8 +3,9 @@ using System.Linq;
 using DV;
 using DV.ThingTypes;
 using DV.ThingTypes.TransitionHelpers;
+using CustomDemonstrators.World;
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.Slots;
 
 internal enum SlotKind
 {

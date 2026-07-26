@@ -1,7 +1,7 @@
 using CCL.Importer;
 using DV.ThingTypes;
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.Slots;
 
 internal static class CustomCarLoaderHelper
 {

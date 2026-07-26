@@ -1,7 +1,7 @@
 using System.Reflection;
 using DV.Utils;
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.Saves;
 
 // Shared, read-only access to the currently loaded save.
 internal static class SaveState

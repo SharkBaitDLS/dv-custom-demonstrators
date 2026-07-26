@@ -4,7 +4,7 @@ using DV.ThingTypes;
 using DV.Utils;
 using HarmonyLib;
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.World;
 
 // Manages a demonstrator slot's garage unlock
 internal static class GarageUnlocks

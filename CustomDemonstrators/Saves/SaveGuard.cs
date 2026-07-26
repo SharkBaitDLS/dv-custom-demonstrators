@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using DV.LocoRestoration;
+using CustomDemonstrators.Slots;
+using CustomDemonstrators.World;
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.Saves;
 
 // Guards settings from being applied so that the mod is safe to enable on an existing save
 internal static class SaveGuard
@@ -98,7 +100,7 @@ internal static class SaveGuard
         _allowGarage = null;
         AllowGarageChanges();
         GarageReplacementApplier.Apply();
-        GarageReplacementApplier.ReinitializeGarages();
+        WorkTrainGarages.ReinitializeAll();
         CommsRadioRefresher.Refresh();
     }
 

@@ -3,7 +3,7 @@ using DV;
 using HarmonyLib;
 using UnityEngine;
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.World;
 
 internal static class CommsRadioRefresher
 {

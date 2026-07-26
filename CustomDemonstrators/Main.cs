@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using HarmonyLib;
 using UnityModManagerNet;
+using CustomDemonstrators.Config;
 
 namespace CustomDemonstrators;
 

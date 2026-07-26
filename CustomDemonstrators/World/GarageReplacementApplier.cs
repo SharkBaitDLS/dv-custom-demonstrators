@@ -11,8 +11,10 @@ using DV.ThingTypes;
 using DV.Utils;
 using HarmonyLib;
 using UnityEngine;
+using CustomDemonstrators.Saves;
+using CustomDemonstrators.Slots;
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.World;
 
 // Bakes the configured replacements into the live game data when a world loads / a save is created.
 // Originals are snapshotted by GarageVehicles so we always recompute from a clean baseline.
@@ -327,8 +329,8 @@ internal static class GarageReplacementApplier
             point?.pointUsed = false;
         }
 
-        DestroyStaleBlockers(loco);
-        DestroyStaleBlockers(secondCar);
+        CarLifecycle.DestroyStaleBlockers(loco);
+        CarLifecycle.DestroyStaleBlockers(secondCar);
 
         Main.Logger.Log($"Destroying demonstrator {loco.name} [{loco.ID}] to force a respawn.");
         // Tearing down the tender cascades to the parent loco, but not visa versa,
@@ -351,32 +353,6 @@ internal static class GarageReplacementApplier
         AccessTools.Method(module.GetType(), "SetUnitsToBuy", [typeof(float)])?.Invoke(module, [0f]);
     }
 
-    private static readonly FieldInfo? BlockerTrainField =
-        AccessTools.Field(typeof(LocoZoneBlocker), "train");
-
-    // A blocked wreck's LocoZoneBlocker parents itself to the loco's interior transform, which isn't
-    // loaded while the cab is blocked, so the blocker sits at the scene root rather than inside the car
-    // hierarchy. Deleting the car therefore leaves the blocker alive and still subscribed to
-    // LicenseManager.LicenseAcquired, and the next license purchase throws NREs from its dead references
-    // in the middle of the event invocation, potentially leading to save corruption if any other mods
-    // have active patching logic in that chain such as Career Rework.
-    private static void DestroyStaleBlockers(TrainCar? car)
-    {
-        if (car == null) return;
-
-        foreach (var blocker in UnityEngine.Object.FindObjectsOfType<LocoZoneBlocker>())
-        {
-            if (BlockerTrainField?.GetValue(blocker) as TrainCar != car) continue;
-
-            Main.Logger.Log($"Destroying the zone blocker for {car.name} [{car.ID}] along with the car.");
-            if (blocker.blockerObjectsParent != null)
-                UnityEngine.Object.Destroy(blocker.blockerObjectsParent);
-            UnityEngine.Object.Destroy(blocker.gameObject);
-        }
-    }
-
-    // For a completed restoration we keep the finished loco as a normal player-owned car (just no longer
-    // considered a demonstrator), then reset the controller and trigger Start() manually.
     private static void DetachFinishedLocoAndRespawn(LocoRestorationController controller)
     {
         var t = Traverse.Create(controller);
@@ -418,130 +394,10 @@ internal static class GarageReplacementApplier
         var home = car.GetComponent<HomeGarageReference>();
         if (home != null) UnityEngine.Object.Destroy(home);
 
-        car.OnDestroyCar -= DelegateFor<Action<TrainCar>>(controller, "OnUnexpectedDestroy");
+        car.OnDestroyCar -= CarLifecycle.DelegateFor<Action<TrainCar>>(controller, "OnUnexpectedDestroy");
         if (garage != null)
         {
-            car.OnDestroyCar -= DelegateFor<Action<TrainCar>>(garage, "OnGarageCarDeleted");
+            car.OnDestroyCar -= CarLifecycle.DelegateFor<Action<TrainCar>>(garage, "OnGarageCarDeleted");
         }
     }
-
-    internal static void ReinitializeGarages()
-    {
-        foreach (var (garage, isDemonstrator, _) in GarageVehicles.Groups)
-        {
-            if (isDemonstrator) continue;
-            if (SpawnerFor(garage) is GarageCarSpawner spawner) ReconcileGarage(spawner);
-        }
-    }
-
-    private static GarageCarSpawner? SpawnerFor(GarageType_v2 garage) =>
-        GarageCarSpawner.Spawners.Values.FirstOrDefault(s => s.garageType == garage);
-
-    private static void ReconcileGarage(GarageCarSpawner spawner)
-    {
-        var desired = spawner.GarageCarLiveries;
-        if (desired == null) return;
-
-        // Already registered to the configured consist, nothing to do
-        if (desired.All(l => l != null && GarageCarSpawner.Spawners.TryGetValue(l, out var s) && s == spawner))
-        {
-            return;
-        }
-
-        var current = spawner.garageCars ?? [];
-
-        // Keep spawned cars whose livery is still wanted (placed at their new slot); free the rest.
-        var rebuilt = new TrainCar[desired.Length];
-        var kept = new HashSet<TrainCar>();
-        for (int i = 0; i < desired.Length; i++)
-        {
-            var match = current.FirstOrDefault(c => c != null && c.carLivery == desired[i] && !kept.Contains(c));
-            if (match != null)
-            {
-                rebuilt[i] = match;
-                kept.Add(match);
-            }
-        }
-        var deletedBlockers = new List<TrainCar>();
-        foreach (var car in current)
-        {
-            if (car == null || kept.Contains(car)) continue;
-
-            // A car still parked on its spawn point would block the replacement from spawning.
-            // Generally speaking if someone has unlocked a garage they've probably either moved what's
-            // within, or if they left it untouched they are likely fine with its replacement removing it.
-            if (IsParkedAtHome(car, spawner))
-            {
-                DeleteGarageCar(car, spawner);
-                deletedBlockers.Add(car);
-            }
-            else
-            {
-                UnparentGarageCar(car, spawner);
-            }
-        }
-
-        // Re-point the static livery->spawner registry from the stale liveries to the desired ones.
-        foreach (var key in GarageCarSpawner.Spawners.Where(kv => kv.Value == spawner).Select(kv => kv.Key).ToList())
-        {
-            GarageCarSpawner.Spawners.Remove(key);
-        }
-        foreach (var l in desired)
-        {
-            if (l != null) GarageCarSpawner.Spawners[l] = spawner;
-        }
-
-        spawner.garageCars = rebuilt;
-
-        // A deleted car's collider lingers until Object.Destroy runs at the end of the frame, so wait until
-        // the blockers are actually gone before respawning.
-        if (deletedBlockers.Count > 0)
-        {
-            SingletonBehaviour<CoroutineManager>.Instance.Run(RespawnAfterBlockersGone(spawner, deletedBlockers));
-        }
-        else
-        {
-            spawner.ForceCarsRespawn();
-        }
-    }
-
-    private static IEnumerator RespawnAfterBlockersGone(GarageCarSpawner spawner, List<TrainCar> blockers)
-    {
-        for (int i = 0; i < 10 && blockers.Any(c => c != null); i++)
-        {
-            yield return null;
-        }
-        if (spawner == null) yield break;
-        var spawned = spawner.ForceCarsRespawn();
-        Main.Logger.Log($"Garage respawn after clearing blockers spawned {spawned?.Count ?? 0} car(s).");
-    }
-
-    private static void UnparentGarageCar(TrainCar car, GarageCarSpawner spawner)
-    {
-        var home = car.GetComponent<HomeGarageReference>();
-        if (home != null) UnityEngine.Object.Destroy(home);
-        car.OnDestroyCar -= DelegateFor<Action<TrainCar>>(spawner, "OnGarageCarDeleted");
-    }
-
-    private const float HomeSpawnRadius = 75f;
-
-    private static bool IsParkedAtHome(TrainCar car, GarageCarSpawner spawner)
-    {
-        if (spawner.locoSpawnPoint == null) return false;
-        var offset = car.transform.position - spawner.locoSpawnPoint.transform.position;
-        return offset.sqrMagnitude < HomeSpawnRadius * HomeSpawnRadius;
-    }
-
-    private static void DeleteGarageCar(TrainCar car, GarageCarSpawner spawner)
-    {
-        Main.Logger.Log($"Deleting garage car {car.name} [{car.ID}] that was blocking its replacement from spawning.");
-        car.OnDestroyCar -= DelegateFor<Action<TrainCar>>(spawner, "OnGarageCarDeleted");
-        var home = car.GetComponent<HomeGarageReference>();
-        if (home != null) UnityEngine.Object.Destroy(home);
-        DestroyStaleBlockers(car);
-        SingletonBehaviour<CarSpawner>.Instance.DeleteCar(car);
-    }
-
-    private static T DelegateFor<T>(object target, string method) where T : Delegate =>
-        (T)Delegate.CreateDelegate(typeof(T), target, AccessTools.Method(target.GetType(), method));
 }

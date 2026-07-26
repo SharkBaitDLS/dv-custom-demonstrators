@@ -3,7 +3,7 @@ using System.Linq;
 using DV;
 using DV.ThingTypes;
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.Slots;
 
 // Enumerates the rolling stock spawned by the game's garages, grouped per garage and split into
 // demonstrators vs. ordinary garage stock.

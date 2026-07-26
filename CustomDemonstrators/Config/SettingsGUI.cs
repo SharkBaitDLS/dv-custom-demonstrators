@@ -5,8 +5,14 @@ using DV.Localization;
 using DV.ThingTypes;
 using UnityEngine;
 using UnityModManagerNet;
+using CustomDemonstrators.Saves;
+using CustomDemonstrators.Slots;
+using CustomDemonstrators.World;
+#if DEBUG
+using CustomDemonstrators.Diagnostics;
+#endif
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.Config;
 
 internal static class SettingsGUI
 {
@@ -17,23 +23,20 @@ internal static class SettingsGUI
     private const string DefaultTenderLabel = "Default";
 
     private static List<TrainCarLivery>? _candidateLiveries;
-    private static string? _openPickerFor;
-    private static Vector2 _pickerScroll;
-    private static string _pickerSearch = "";
-
     private static List<CargoType_v2>? _candidateCargos;
-    private static string? _openCargoPickerFor;
-    private static Vector2 _cargoScroll;
-    private static string _cargoSearch = "";
-
     private static List<TrainCarLivery>? _candidateTenders;
-    private static string? _openTenderPickerFor;
-    private static Vector2 _tenderScroll;
-    private static string _tenderSearch = "";
 
+    // Which picker is currently expanded. Search text and scroll position live in SearchPicker, keyed by
+    // the same strings used here.
+    private static string? _openPickerFor;
+    private static string? _openCargoPickerFor;
+    private static string? _openTenderPickerFor;
     private static string? _openExtraPickerFor;
-    private static Vector2 _extraScroll;
-    private static string _extraSearch = "";
+
+    private static string ReplacementKey(string slotId) => $"replacement:{slotId}";
+    private static string CargoKey(string slotId) => $"cargo:{slotId}";
+    private static string TenderKey(string slotId) => $"tender:{slotId}";
+    private static string ExtraKey(string garageId) => $"extra:{garageId}";
 
     // Edit buffers for the price text fields, keyed by "<slotId>:order" / "<slotId>:install"
     private static readonly Dictionary<string, string> _priceText = [];
@@ -153,8 +156,7 @@ internal static class SettingsGUI
         if (GUILayout.Button($"{replacementLabel} ▼", GUILayout.Width(240)))
         {
             _openPickerFor = pickerOpen ? null : livery.id;
-            _pickerScroll = Vector2.zero;
-            _pickerSearch = "";
+            SearchPicker.Reset(ReplacementKey(livery.id));
         }
         if (!string.IsNullOrEmpty(replacementId) && GUILayout.Button("Clear", GUILayout.Width(50)))
         {
@@ -164,7 +166,7 @@ internal static class SettingsGUI
         GUILayout.EndHorizontal();
 
         if (pickerOpen)
-            DrawReplacementPicker(livery, kind);
+            SearchPicker.Draw(ReplacementKey(livery.id), ReplacementOptions(livery, kind));
     }
 
     // Demonstrator-only quest tuning shown beneath each demonstrator row
@@ -180,14 +182,13 @@ internal static class SettingsGUI
         if (GUILayout.Button($"{TenderLabel(slot.id, originalTender)} ▼", GUILayout.Width(300)))
         {
             _openTenderPickerFor = tenderOpen ? null : slot.id;
-            _tenderScroll = Vector2.zero;
-            _tenderSearch = "";
+            SearchPicker.Reset(TenderKey(slot.id));
         }
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
 
         if (tenderOpen)
-            DrawTenderPicker(slot, originalTender);
+            SearchPicker.Draw(TenderKey(slot.id), TenderOptions(slot, originalTender));
 
         GUILayout.BeginHorizontal();
         GUILayout.Space(20);
@@ -196,14 +197,13 @@ internal static class SettingsGUI
         if (GUILayout.Button($"{CargoChoiceLabel(slot.id, effectiveLoco)} ▼", GUILayout.Width(300)))
         {
             _openCargoPickerFor = open ? null : slot.id;
-            _cargoScroll = Vector2.zero;
-            _cargoSearch = "";
+            SearchPicker.Reset(CargoKey(slot.id));
         }
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
 
         if (open)
-            DrawCargoPicker(slot.id);
+            SearchPicker.Draw(CargoKey(slot.id), CargoOptions(slot.id));
 
         GUILayout.BeginHorizontal();
         GUILayout.Space(20);
@@ -242,52 +242,29 @@ internal static class SettingsGUI
         if (GUILayout.Button(open ? "Add car ▲" : "Add car ▼", GUILayout.Width(140)))
         {
             _openExtraPickerFor = open ? null : garage.id;
-            _extraScroll = Vector2.zero;
-            _extraSearch = "";
+            SearchPicker.Reset(ExtraKey(garage.id));
         }
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
 
         if (open)
-            DrawExtraPicker(garage);
+            SearchPicker.Draw(ExtraKey(garage.id), ExtraCarOptions(garage));
         GUILayout.Space(4);
     }
 
-    private static void DrawExtraPicker(GarageType_v2 garage)
+    private static IEnumerable<SearchPicker.Option> ExtraCarOptions(GarageType_v2 garage)
     {
-        GUILayout.BeginVertical(GUI.skin.box);
-
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Search:", GUILayout.Width(50));
-        var newSearch = GUILayout.TextField(_extraSearch, GUILayout.ExpandWidth(true));
-        if (newSearch != _extraSearch)
-        {
-            _extraSearch = newSearch;
-            _extraScroll = Vector2.zero;
-        }
-        GUILayout.EndHorizontal();
-
-        _extraScroll = GUILayout.BeginScrollView(_extraScroll, GUILayout.Height(160));
-
         foreach (var candidate in _candidateLiveries!)
         {
             if (!GarageReplacements.CanAddExtraCar(candidate)) continue;
 
-            string displayName = Loc(candidate.localizationKey, candidate.id);
-            if (_extraSearch.Length > 0
-                && !displayName.ToLower().Contains(_extraSearch.ToLower())
-                && !candidate.id.ToLower().Contains(_extraSearch.ToLower()))
-                continue;
-
-            if (GUILayout.Button($"{displayName}  [{candidate.id}]", GUILayout.ExpandWidth(true)))
+            var chosen = candidate;
+            yield return new(Loc(chosen.localizationKey, chosen.id), chosen.id, () =>
             {
-                Main.Settings.AddExtraCar(garage.id, candidate.id);
+                Main.Settings.AddExtraCar(garage.id, chosen.id);
                 _openExtraPickerFor = null;
-            }
+            });
         }
-
-        GUILayout.EndScrollView();
-        GUILayout.EndVertical();
     }
 
     private static string TenderLabel(string slotId, TrainCarLivery? originalTender)
@@ -300,47 +277,25 @@ internal static class SettingsGUI
         return isDefault ? $"{DefaultTenderLabel} → {name}" : name;
     }
 
-    private static void DrawTenderPicker(TrainCarLivery slot, TrainCarLivery? originalTender)
+    private static IEnumerable<SearchPicker.Option> TenderOptions(TrainCarLivery slot, TrainCarLivery? originalTender)
     {
-        GUILayout.BeginVertical(GUI.skin.box);
-
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Search:", GUILayout.Width(50));
-        var newSearch = GUILayout.TextField(_tenderSearch, GUILayout.ExpandWidth(true));
-        if (newSearch != _tenderSearch)
-        {
-            _tenderSearch = newSearch;
-            _tenderScroll = Vector2.zero;
-        }
-        GUILayout.EndHorizontal();
-
-        _tenderScroll = GUILayout.BeginScrollView(_tenderScroll, GUILayout.Height(160));
-
-        if (GUILayout.Button(DefaultTenderLabel, GUILayout.ExpandWidth(true)))
+        yield return new(DefaultTenderLabel, null, () =>
         {
             Main.Settings.SetTenderId(slot.id, null);
             _openTenderPickerFor = null;
-        }
+        });
 
         foreach (var candidate in _candidateTenders!)
         {
             if (!GarageReplacements.CanSelectTender(slot, originalTender, candidate)) continue;
 
-            string displayName = Loc(candidate.localizationKey, candidate.id);
-            if (_tenderSearch.Length > 0
-                && !displayName.ToLower().Contains(_tenderSearch.ToLower())
-                && !candidate.id.ToLower().Contains(_tenderSearch.ToLower()))
-                continue;
-
-            if (GUILayout.Button($"{displayName}  [{candidate.id}]", GUILayout.ExpandWidth(true)))
+            var chosen = candidate;
+            yield return new(Loc(chosen.localizationKey, chosen.id), chosen.id, () =>
             {
-                Main.Settings.SetTenderId(slot.id, candidate.id);
+                Main.Settings.SetTenderId(slot.id, chosen.id);
                 _openTenderPickerFor = null;
-            }
+            });
         }
-
-        GUILayout.EndScrollView();
-        GUILayout.EndVertical();
     }
 
     private static string CargoChoiceLabel(string slotId, TrainCarLivery effectiveLoco)
@@ -359,32 +314,18 @@ internal static class SettingsGUI
         return cargo != null ? Loc(cargo.localizationKeyFull, cargo.id) : $"? {choice}";
     }
 
-    private static void DrawCargoPicker(string slotId)
+    private static IEnumerable<SearchPicker.Option> CargoOptions(string slotId)
     {
-        GUILayout.BeginVertical(GUI.skin.box);
-
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Search:", GUILayout.Width(50));
-        var newSearch = GUILayout.TextField(_cargoSearch, GUILayout.ExpandWidth(true));
-        if (newSearch != _cargoSearch)
-        {
-            _cargoSearch = newSearch;
-            _cargoScroll = Vector2.zero;
-        }
-        GUILayout.EndHorizontal();
-
-        _cargoScroll = GUILayout.BeginScrollView(_cargoScroll, GUILayout.Height(160));
-
-        if (GUILayout.Button(AutoCargoLabel, GUILayout.ExpandWidth(true)))
+        yield return new(AutoCargoLabel, null, () =>
         {
             Main.Settings.SetPartsCargoId(slotId, null);
             _openCargoPickerFor = null;
-        }
-        if (GUILayout.Button(GenericCrateLabel, GUILayout.ExpandWidth(true)))
+        });
+        yield return new(GenericCrateLabel, null, () =>
         {
             Main.Settings.SetPartsCargoId(slotId, RestorationPartsCustomizer.GenericCrateSentinel);
             _openCargoPickerFor = null;
-        }
+        });
 
         var currentChoice = Main.Settings.GetPartsCargoId(slotId);
         foreach (var cargo in _candidateCargos!)
@@ -392,21 +333,13 @@ internal static class SettingsGUI
             // Only offer cargos the parts flatcar can actually load, but never hide an existing choice.
             if (cargo.id != currentChoice && !GarageReplacements.CanBeRestorationParts(cargo)) continue;
 
-            string displayName = Loc(cargo.localizationKeyFull, cargo.id);
-            if (_cargoSearch.Length > 0
-                && !displayName.ToLower().Contains(_cargoSearch.ToLower())
-                && !cargo.id.ToLower().Contains(_cargoSearch.ToLower()))
-                continue;
-
-            if (GUILayout.Button($"{displayName}  [{cargo.id}]", GUILayout.ExpandWidth(true)))
+            var chosen = cargo;
+            yield return new(Loc(chosen.localizationKeyFull, chosen.id), chosen.id, () =>
             {
-                Main.Settings.SetPartsCargoId(slotId, cargo.id);
+                Main.Settings.SetPartsCargoId(slotId, chosen.id);
                 _openCargoPickerFor = null;
-            }
+            });
         }
-
-        GUILayout.EndScrollView();
-        GUILayout.EndVertical();
     }
 
     private static void DrawPriceField(string fieldKey, float? current, System.Action<float?> set)
@@ -425,50 +358,30 @@ internal static class SettingsGUI
         }
     }
 
-    private static void DrawReplacementPicker(TrainCarLivery slot, SlotKind kind)
+    private static IEnumerable<SearchPicker.Option> ReplacementOptions(TrainCarLivery slot, SlotKind kind)
     {
-        GUILayout.BeginVertical(GUI.skin.box);
-
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Search:", GUILayout.Width(50));
-        var newSearch = GUILayout.TextField(_pickerSearch, GUILayout.ExpandWidth(true));
-        if (newSearch != _pickerSearch)
-        {
-            _pickerSearch = newSearch;
-            _pickerScroll = Vector2.zero;
-        }
-        GUILayout.EndHorizontal();
-
-        _pickerScroll = GUILayout.BeginScrollView(_pickerScroll, GUILayout.Height(160));
-
-        if (GUILayout.Button(NoReplacementLabel, GUILayout.ExpandWidth(true)))
+        yield return new(NoReplacementLabel, null, () =>
         {
             GarageReplacements.Select(slot, null);
             _openPickerFor = null;
-        }
+        });
 
         foreach (var candidate in _candidateLiveries!)
         {
             if (candidate.id == slot.id) continue;
-
             if (!GarageReplacements.CanSelect(slot, kind, candidate)) continue;
 
-            string displayName = Loc(candidate.localizationKey, candidate.id);
-            if (_pickerSearch.Length > 0
-                && !displayName.ToLower().Contains(_pickerSearch.ToLower())
-                && !candidate.id.ToLower().Contains(_pickerSearch.ToLower()))
-                continue;
-
-            // Flag candidates another garage already spawns so the player knows clicking swaps them.
-            string suffix = GarageReplacements.IsClaimedByOther(slot, candidate.id) ? "  ↔ swaps" : "";
-            if (GUILayout.Button($"{displayName}  [{candidate.id}]{suffix}", GUILayout.ExpandWidth(true)))
-            {
-                GarageReplacements.Select(slot, candidate.id);
-                _openPickerFor = null;
-            }
+            var chosen = candidate;
+            yield return new(
+                Loc(chosen.localizationKey, chosen.id),
+                chosen.id,
+                () =>
+                {
+                    GarageReplacements.Select(slot, chosen.id);
+                    _openPickerFor = null;
+                },
+                // Flag candidates another garage already spawns so the player knows clicking swaps them.
+                GarageReplacements.IsClaimedByOther(slot, chosen.id) ? "  ↔ swaps" : "");
         }
-
-        GUILayout.EndScrollView();
-        GUILayout.EndVertical();
     }
 }

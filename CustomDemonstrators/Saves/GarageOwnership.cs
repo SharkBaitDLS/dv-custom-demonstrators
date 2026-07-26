@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using DV.ThingTypes;
+using CustomDemonstrators.Slots;
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.Saves;
 
 // Detects ordinary garages the player has already unlocked and taken ownership of the car from, by
 // reading the loaded save.

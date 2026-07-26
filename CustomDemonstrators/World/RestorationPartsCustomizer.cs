@@ -14,8 +14,9 @@ using DVLangHelper.Runtime;
 using HarmonyLib;
 using I2.Loc;
 using UnityEngine;
+using CustomDemonstrators.Slots;
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.World;
 
 internal static class RestorationPartsCustomizer
 {

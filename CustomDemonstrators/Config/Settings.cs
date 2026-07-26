@@ -5,7 +5,7 @@ using DV;
 using DV.ThingTypes;
 using UnityModManagerNet;
 
-namespace CustomDemonstrators;
+namespace CustomDemonstrators.Config;
 
 public class Settings : UnityModManager.ModSettings
 {

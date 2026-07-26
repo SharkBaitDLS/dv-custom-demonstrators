@@ -1,6 +1,8 @@
 using DV;
 using DV.LocoRestoration;
 using HarmonyLib;
+using CustomDemonstrators.Saves;
+using CustomDemonstrators.World;
 
 namespace CustomDemonstrators;
 
