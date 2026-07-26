@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DV;
 using DV.ThingTypes;
+using CustomDemonstrators.World;
 
 namespace CustomDemonstrators.Slots;
 
@@ -17,6 +18,19 @@ internal static class GarageVehicles
     ];
 
     internal static bool IsDemonstrator(Garage garage) => DemonstratorGarages.Contains(garage);
+
+    // The liveries backing the game's own demonstrator slots, used to tell them apart from the slots this
+    // mod adds when reading a save's baked configuration back.
+    internal static HashSet<string> VanillaDemonstratorIds()
+    {
+        var ids = new HashSet<string>();
+        foreach (var (_, isDemonstrator, liveries) in Groups)
+        {
+            if (!isDemonstrator) continue;
+            if (liveries.FirstOrDefault() is TrainCarLivery primary) ids.Add(primary.id);
+        }
+        return ids;
+    }
 
     // Pristine copy of each garage's liveries, captured before GarageReplacementApplier rewrites the
     // live game data.
@@ -70,6 +84,9 @@ internal static class GarageVehicles
         foreach (var garage in garages)
         {
             if (garage == null || garage.v1 == Garage.NotSet) continue;
+            // Slots this mod creates are configured from their own settings list, not as rows built from
+            // game data, so they never take part in the replacement grouping.
+            if (DemonstratorSlotFactory.IsSlotGarage(garage)) continue;
             bool demonstrator = IsDemonstrator(garage.v1);
 
             List<TrainCarLivery> liveries;

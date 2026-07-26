@@ -32,6 +32,8 @@ internal static class GarageReplacementApplier
         foreach (var garage in types.garages)
         {
             if (garage == null) continue;
+            // Slots we built already spawn exactly what they were created for.
+            if (DemonstratorSlotFactory.IsSlotGarage(garage)) continue;
             var desired = DesiredLiveries(garage);
             if (garage.garageCarLiveries == null || !garage.garageCarLiveries.SequenceEqual(desired))
             {
@@ -131,7 +133,11 @@ internal static class GarageReplacementApplier
             Main.Logger.Warning(
                 $"{controller.locoLivery?.id} has no loco zone blocker available, its restoration can't unblock itself.");
 
-        RestorationPartsCustomizer.ApplyCargo(controller, slotId, replacementLoco);
+        // A slot this mod added has no vanilla loco it stands in for, so its own loco is what the parts
+        // cargo has to be named and modelled after.
+        var cargoLoco = replacementLoco
+            ?? (DemonstratorSlotFactory.IsSlotGarage(controller.garageSpawner?.garageType) ? controller.locoLivery : null);
+        RestorationPartsCustomizer.ApplyCargo(controller, slotId, cargoLoco);
 
         controller.secondCarLivery = tenderId;
 
@@ -324,10 +330,7 @@ internal static class GarageReplacementApplier
         ClearRegister(controller.orderPartsModule);
         ClearRegister(controller.installPartsModule);
 
-        foreach (var point in controller.spawnPoints)
-        {
-            point?.pointUsed = false;
-        }
+        ReconcileSpawnPointUsage(ignoring: controller);
 
         CarLifecycle.DestroyStaleBlockers(loco);
         CarLifecycle.DestroyStaleBlockers(secondCar);
@@ -345,6 +348,135 @@ internal static class GarageReplacementApplier
             loco.preventDelete = false;
             SingletonBehaviour<CarSpawner>.Instance.DeleteCar(loco);
         }
+    }
+
+    // How close a restoration car has to be to an anchor for that anchor to count as still occupied. The
+    // wreck spawns centred on its anchor, so anything roughly a car length away has been moved off it.
+    private const float SpawnPointOccupiedRadius = 20f;
+
+    // Recomputes which wreck anchors are taken, from where the restoration cars actually are.
+    //
+    // The anchors are a pool shared by every restoration controller — which is what lets slots beyond the
+    // game's six find a spot — so a controller must never blanket-clear the array it holds: those entries
+    // belong to the other slots too. Deriving occupancy from live cars is the only reading that stays
+    // correct for anchors this controller never claimed, and it also releases anchors whose wreck the
+    // player has since hauled away.
+    internal static void ReconcileSpawnPointUsage(LocoRestorationController? ignoring = null)
+    {
+        var occupied = new HashSet<LocoRestorationSpawnPoint>();
+        var points = new HashSet<LocoRestorationSpawnPoint>();
+
+        foreach (var controller in LocoRestorationController.allLocoRestorationControllers)
+        {
+            if (controller == null || controller.spawnPoints == null) continue;
+            foreach (var point in controller.spawnPoints)
+            {
+                if (point != null) points.Add(point);
+            }
+            if (controller == ignoring) continue;
+
+            var t = Traverse.Create(controller);
+            foreach (var car in new[] { t.Field("loco").GetValue<TrainCar>(), t.Field("secondCar").GetValue<TrainCar>() })
+            {
+                if (car == null) continue;
+                foreach (var point in controller.spawnPoints)
+                {
+                    if (point == null) continue;
+                    if ((point.transform.position - car.transform.position).sqrMagnitude
+                        < SpawnPointOccupiedRadius * SpawnPointOccupiedRadius)
+                    {
+                        occupied.Add(point);
+                    }
+                }
+            }
+        }
+
+        foreach (var point in points)
+        {
+            point.pointUsed = occupied.Contains(point);
+        }
+    }
+
+    // A newly built slot spawns its wreck blocked and then sorts itself out: LocoZoneBlocker checks the
+    // licenses the player already holds and unblocks on its own, taking the restoration to S2. This waits
+    // for that to play out and then runs the same stranded-state check a respawned wreck gets, which stops
+    // at S1 when the loco's own license is still missing and only forces the issue if it is genuinely stuck.
+    internal static void SettleNewDemonstrator(LocoRestorationController controller) =>
+        SingletonBehaviour<CoroutineManager>.Instance.Run(SettleNew(controller));
+
+    // The wreck only appears once the world has finished loading its cars, which on a slow load is a while.
+    private const int NewSlotSpawnTimeoutFrames = 3000;
+
+    private static IEnumerator SettleNew(LocoRestorationController controller)
+    {
+        var t = Traverse.Create(controller);
+        for (int i = 0; i < NewSlotSpawnTimeoutFrames; i++)
+        {
+            if (controller == null) yield break;
+            if (t.Field("loco").GetValue<TrainCar>() != null) break;
+            yield return null;
+        }
+        if (controller == null || t.Field("loco").GetValue<TrainCar>() == null)
+        {
+            Main.Logger.Warning($"{controller?.locoLivery?.id} never spawned a wreck for its new demonstrator slot.");
+            yield break;
+        }
+
+        float lastStep = Time.fixedTime;
+        for (int steps = 0; steps < BlockerSettleSteps;)
+        {
+            if (controller == null) yield break;
+            // The blocker got there on its own; nothing to rescue.
+            if (controller.State != LocoRestorationController.RestorationState.S0_Initialized) yield break;
+            yield return null;
+            if (Time.fixedTime <= lastStep) continue;
+            lastStep = Time.fixedTime;
+            steps++;
+        }
+
+        RescueStrandedState(controller);
+    }
+
+    // Lets go of a demonstrator's cars without putting anything back in their place: a finished loco stays
+    // in the world as an ordinary owned car, an unfinished wreck is deleted. Used when a slot this mod
+    // added is removed outright, as opposed to being respawned as something else.
+    internal static void RetireDemonstratorCars(LocoRestorationController controller, GarageCarSpawner? spawner)
+    {
+        var t = Traverse.Create(controller);
+        var loco = t.Field("loco").GetValue<TrainCar>();
+        var secondCar = t.Field("secondCar").GetValue<TrainCar>();
+
+        ClearRegister(controller.orderPartsModule);
+        ClearRegister(controller.installPartsModule);
+
+        bool keep = loco != null && controller.State >= LocoRestorationController.RestorationState.S9_LocoServiced;
+        if (keep)
+        {
+            // Stop it reacting to the paint job it may still be waiting on before we let the cars go.
+            AccessTools.Method(typeof(LocoRestorationController), "SetupListenersForPaintJob", [typeof(bool)])
+                .Invoke(controller, [false]);
+        }
+
+        foreach (var car in new[] { secondCar, loco })
+        {
+            if (car == null) continue;
+            // Unparent first either way: it drops OnUnexpectedDestroy, which would otherwise respawn the
+            // very wreck we are deleting.
+            UnparentCar(car, controller, spawner);
+            if (keep) continue;
+
+            CarLifecycle.DestroyStaleBlockers(car);
+            car.preventDelete = false;
+            SingletonBehaviour<CarSpawner>.Instance.DeleteCar(car);
+        }
+
+        if (keep)
+        {
+            Main.Logger.Log($"Kept restored {loco?.name} as a player-owned car while removing its demonstrator slot.");
+        }
+
+        t.Field("loco").SetValue(null);
+        t.Field("secondCar").SetValue(null);
     }
 
     private static void ClearRegister(GenericThingCashRegisterModule? module)
@@ -380,10 +512,7 @@ internal static class GarageReplacementApplier
         t.Field("loco").SetValue(null);
         t.Field("secondCar").SetValue(null);
         t.Field("transportingCars").SetValue(null);
-        foreach (var point in controller.spawnPoints)
-        {
-            point?.pointUsed = false;
-        }
+        ReconcileSpawnPointUsage(ignoring: controller);
         controller.StartCoroutine(
             (IEnumerator)AccessTools.Method(typeof(LocoRestorationController), "Start")
                     .Invoke(controller, null));

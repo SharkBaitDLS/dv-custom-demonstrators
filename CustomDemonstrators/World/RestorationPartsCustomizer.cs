@@ -67,7 +67,10 @@ internal static class RestorationPartsCustomizer
 
     internal static void ApplyCargo(LocoRestorationController controller, string slotId, TrainCarLivery? replacementLoco)
     {
-        EnsureSnapshot(slotId, controller.locoPartCargo);
+        // Snapshots exist to put a shared game cargo back the way we found it. A slot added by this mod
+        // only ever rewrites a copy it owns, and gets a fresh one each load, so it has nothing to restore.
+        if (!DemonstratorSlotFactory.IsSlotGarage(controller.garageSpawner?.garageType))
+            EnsureSnapshot(slotId, controller.locoPartCargo);
 
         var choice = Main.Settings.GetPartsCargoId(slotId);
 
@@ -107,6 +110,11 @@ internal static class RestorationPartsCustomizer
                 return;
             }
         }
+
+        // Past this point the cargo gets rewritten in place, so an added slot needs the copy it owns
+        // rather than the template's.
+        if (DemonstratorSlotFactory.OwnCargoFor(controller) is CargoType_v2 own)
+            controller.locoPartCargo = own;
 
         Customize(controller.locoPartCargo, replacementLoco);
         SyncRegisterNames(controller);
@@ -185,6 +193,7 @@ internal static class RestorationPartsCustomizer
             // Don't detect a cargo we ourselves created
             if (cargo.localizationKeyFull?.StartsWith(RewrittenKeyPrefix, StringComparison.Ordinal) == true)
                 continue;
+            if (DemonstratorSlotFactory.IsSlotCargo(cargo)) continue;
             string cargoId = Normalize(cargo.id);
             string cargoName = Normalize(LocalizationAPI.L(cargo.localizationKeyFull));
 

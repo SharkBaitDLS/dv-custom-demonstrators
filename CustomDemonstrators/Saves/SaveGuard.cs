@@ -89,6 +89,9 @@ internal static class SaveGuard
         _allowDemo = null;
         AllowDemonstratorChanges();
         GarageReplacementApplier.Apply();
+        // Add and remove the mod's own slots before respawning, so the loop below sees the final set and a
+        // slot that was just taken apart isn't handed a fresh wreck on its way out.
+        DemonstratorSlotFactory.Reconcile();
         foreach (var controller in LocoRestorationController.allLocoRestorationControllers.ToList())
             GarageReplacementApplier.ReinitializeDemonstrator(controller);
         CommsRadioRefresher.Refresh();
@@ -114,6 +117,16 @@ internal static class SaveGuard
             if (primary == null) continue;
             var tender = GarageReplacements.ResolveTender(primary.id, GarageVehicles.OriginalTender(garage));
             entries.Add((primary.id, GarageReplacements.CurrentSpawnId(primary), tender?.id));
+        }
+
+        // Slots this mod adds are part of what a save was baked with, so adding or removing one has to
+        // read as a mismatch on an existing save just like changing a vanilla demonstrator does. Sorted so
+        // that merely reordering the settings list isn't mistaken for a change.
+        foreach (var slot in Main.Settings.AdditionalSlots.OrderBy(s => s.LocoId, StringComparer.Ordinal))
+        {
+            if (string.IsNullOrEmpty(slot.LocoId)) continue;
+            var tenderId = Main.Settings.GetTenderId(slot.LocoId);
+            entries.Add((slot.LocoId, slot.LocoId, string.IsNullOrEmpty(tenderId) ? null : tenderId));
         }
         return SaveConfig.SerializeDemonstrators(entries);
     }

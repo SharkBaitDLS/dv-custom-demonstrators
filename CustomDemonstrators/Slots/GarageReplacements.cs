@@ -67,6 +67,11 @@ internal static class GarageReplacements
         if (CurrentSpawnId(slot) != candidate.id && ExtraCarIds().Contains(candidate.id))
             return false;
 
+        // Same for a car serving one of the slots this mod adds: those are chosen directly rather than
+        // being a replacement for something, so there's nothing to trade back.
+        if (CurrentSpawnId(slot) != candidate.id && AdditionalSlotIds().Contains(candidate.id))
+            return false;
+
         // Selecting a candidate another slot already spawns trades our current spawn to that slot.
         // Don't allow a swap that would push an invalid car onto a more restricted slot.
         var (livery, colliderKind) = ColliderFor(slot, candidate.id);
@@ -112,10 +117,10 @@ internal static class GarageReplacements
         Main.Settings.LiveryReplacements.TryGetValue(slotId, out var r)
         && !string.IsNullOrEmpty(r) && r != slotId;
 
-    internal static bool CanSelectTender(TrainCarLivery primary, TrainCarLivery? originalTender, TrainCarLivery candidate)
+    internal static bool CanSelectTender(string slotId, TrainCarLivery? originalTender, TrainCarLivery candidate)
     {
         if (!IsValidTender(candidate)) return false;
-        var current = ResolveTender(primary.id, originalTender);
+        var current = ResolveTender(slotId, originalTender);
         if (current != null && current.id == candidate.id) return true;
         return !AllSpawnedIds().Contains(candidate.id);
     }
@@ -142,7 +147,30 @@ internal static class GarageReplacements
                     yield return extra;
             }
         }
+
+        foreach (var id in AdditionalSlotIds())
+            yield return id;
     }
+
+    // The locos (and tenders) claimed by the demonstrator slots this mod adds.
+    internal static HashSet<string> AdditionalSlotIds()
+    {
+        var ids = new HashSet<string>();
+        foreach (var slot in Main.Settings.AdditionalSlots)
+        {
+            if (string.IsNullOrEmpty(slot.LocoId)) continue;
+            ids.Add(slot.LocoId);
+            var tender = Main.Settings.GetTenderId(slot.LocoId);
+            if (!string.IsNullOrEmpty(tender)) ids.Add(tender!);
+        }
+        return ids;
+    }
+
+    // Whether `candidate` can back a brand new demonstrator slot: it has to satisfy the same rules as a
+    // demonstrator replacement and not already be spawned anywhere in the pool.
+    internal static bool CanBeAdditionalSlot(TrainCarLivery candidate) =>
+        IsValidDemonstrator(candidate) && !AllSpawnedIds().Contains(candidate.id);
+
 
     // Liveries currently configured as a garage's extra consist cars.
     private static HashSet<string> ExtraCarIds()

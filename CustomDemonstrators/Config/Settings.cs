@@ -3,7 +3,9 @@ using System.Linq;
 using System.Xml.Serialization;
 using DV;
 using DV.ThingTypes;
+using UnityEngine;
 using UnityModManagerNet;
+using CustomDemonstrators.Slots;
 
 namespace CustomDemonstrators.Config;
 
@@ -36,6 +38,44 @@ public class Settings : UnityModManager.ModSettings
                       .Where(s => !string.IsNullOrEmpty(s))
                       .Distinct()
                       .ToList());
+    }
+
+    // Lets slots be added past the roundhouse stalls the mod knows about, on the understanding that the
+    // player then has to say where each extra one lives. That will consequently get weird, as the player
+    // will have to either pick a track that multiple demonstrators will share, or cram their extra demonstrator
+    // onto some other track entirely. Either way, we don't want to make this available by default and will
+    // leave it as an opt-in with an appropriate warning about how fucked your gamestate can get by doing this.
+    public bool OverrideSlotLimit { get; set; }
+
+    // Demonstrator slots this mod adds on top of the game's six. A slot is identified by the loco it
+    // restores rather than by a synthetic id since the game keys restoration save state by locoLivery.id.
+    // One loco can back exactly one slot, and every per-slot setting below (tender, cargo, prices) keys
+    // off that same id for vanilla and additional slots alike.
+    [XmlIgnore] internal List<AdditionalSlot> AdditionalSlots { get; set; } = [];
+
+    public AdditionalSlotEntry[] ExtraDemonstrators
+    {
+        get => [.. AdditionalSlots.Select(s => new AdditionalSlotEntry
+        {
+            LocoId = s.LocoId,
+            Stall = s.Stall ?? "",
+            HasHome = s.Home.HasValue,
+            HomeX = s.Home?.x ?? 0f,
+            HomeY = s.Home?.y ?? 0f,
+            HomeZ = s.Home?.z ?? 0f,
+            HomeYaw = s.HomeYaw,
+        })];
+        set => AdditionalSlots = [.. (value ?? [])
+            .Where(e => !string.IsNullOrEmpty(e.LocoId))
+            .GroupBy(e => e.LocoId)
+            .Select(g => g.First())
+            .Select(e => new AdditionalSlot
+            {
+                LocoId = e.LocoId,
+                Stall = string.IsNullOrEmpty(e.Stall) ? null : e.Stall,
+                Home = e.HasHome ? new Vector3(e.HomeX, e.HomeY, e.HomeZ) : null,
+                HomeYaw = e.HomeYaw,
+            })];
     }
 
     // Per-demonstrator quest tuning, keyed by the original demonstrator livery id
@@ -129,6 +169,54 @@ public class Settings : UnityModManager.ModSettings
             Demonstrators.Remove(slotId);
         else
             Demonstrators[slotId] = o;
+    }
+
+    internal bool IsAdditionalSlot(string locoId) => AdditionalSlots.Any(s => s.LocoId == locoId);
+
+    internal AdditionalSlot? GetAdditionalSlot(string locoId) =>
+        AdditionalSlots.FirstOrDefault(s => s.LocoId == locoId);
+
+    internal void AddAdditionalSlot(string locoId)
+    {
+        if (IsAdditionalSlot(locoId)) return;
+        AdditionalSlots.Add(new AdditionalSlot { LocoId = locoId, Stall = MuseumStalls.ClaimFree() });
+    }
+
+    // Drops the slot along with the quest tuning that only existed to serve it.
+    internal void RemoveAdditionalSlot(string locoId)
+    {
+        AdditionalSlots.RemoveAll(s => s.LocoId == locoId);
+        Demonstrators.Remove(locoId);
+    }
+
+    internal void SetAdditionalSlotHome(string locoId, Vector3? home, float yaw)
+    {
+        if (GetAdditionalSlot(locoId) is not AdditionalSlot slot) return;
+        slot.Home = home;
+        slot.HomeYaw = yaw;
+    }
+
+    internal class AdditionalSlot
+    {
+        public string LocoId = "";
+
+        // The roundhouse stall this slot claimed, by track name
+        public string? Stall;
+
+        // A stall position placed by hand instead if a user opts in to go past the slot limit.
+        public Vector3? Home;
+        public float HomeYaw;
+    }
+
+    public class AdditionalSlotEntry
+    {
+        [XmlAttribute] public string LocoId { get; set; } = "";
+        [XmlAttribute] public string Stall { get; set; } = "";
+        [XmlAttribute] public bool HasHome { get; set; }
+        [XmlAttribute] public float HomeX { get; set; }
+        [XmlAttribute] public float HomeY { get; set; }
+        [XmlAttribute] public float HomeZ { get; set; }
+        [XmlAttribute] public float HomeYaw { get; set; }
     }
 
     internal class DemonstratorOverride
