@@ -38,7 +38,7 @@ internal static class DebugCheats
     // whether the save is carrying the state we think it is.
     private static void DrawAdditionalSlots()
     {
-        var slots = DemonstratorSlotFactory.LiveSlots().ToList();
+        var slots = DemonstratorSlots.LiveSlots().ToList();
         if (slots.Count == 0) return;
 
         GUILayout.Label("Additional demonstrators (debug):", new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold });
@@ -93,7 +93,7 @@ internal static class DebugCheats
         foreach (var controller in LocoRestorationController.allLocoRestorationControllers)
         {
             if (controller == null) continue;
-            bool ours = DemonstratorSlotFactory.IsSlotGarage(controller.garageSpawner?.garageType);
+            bool ours = SlotTypes.IsSlotGarage(controller.garageSpawner?.garageType);
             // Vanilla gives every demonstrator its own stall, so two slots sharing a track here means a
             // placement was missed rather than that the game works that way.
             sb.AppendLine($"  {(ours ? "[added]" : "[vanilla]")} {controller.SaveID}: {controller.State}"
@@ -102,7 +102,7 @@ internal static class DebugCheats
                 + $", tender {controller.secondCarLivery?.id ?? "none"}");
         }
 
-        foreach (var kv in DemonstratorSlotFactory.CargoMapping())
+        foreach (var kv in SlotTypes.CargoMapping())
         {
             sb.AppendLine($"  cargo mapping: {kv.Key} = {kv.Value}");
         }

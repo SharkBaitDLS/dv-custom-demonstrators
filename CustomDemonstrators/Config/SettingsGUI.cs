@@ -60,8 +60,8 @@ internal static class SettingsGUI
 
         _candidateLiveries ??= [.. Globals.G.Types.Liveries.OrderBy(l => l.id)];
         _candidateCargos ??= [.. Globals.G.Types.cargos
-            .Where(c => c != null && !DemonstratorSlotFactory.IsSlotCargo(c)).OrderBy(c => c.id)];
-        _candidateTenders ??= [.. Globals.G.Types.Liveries.Where(GarageReplacements.IsValidTender).OrderBy(l => l.id)];
+            .Where(c => c != null && !SlotTypes.IsSlotCargo(c)).OrderBy(c => c.id)];
+        _candidateTenders ??= [.. Globals.G.Types.Liveries.Where(SlotChoices.IsValidTender).OrderBy(l => l.id)];
 
         GUILayout.Label(IntroText, GUILayout.ExpandWidth(true));
         GUILayout.Space(6);
@@ -72,7 +72,7 @@ internal static class SettingsGUI
         DebugCheats.Draw();
 #endif
 
-        var groups = GarageVehicles.Groups;
+        var groups = VanillaGarages.Groups;
 
         DrawSection(Loc("license/museum_cs", "Museum"), groups.Where(g => g.isDemonstrator));
         GUILayout.Space(6);
@@ -128,14 +128,14 @@ internal static class SettingsGUI
         GUILayout.Space(2);
         foreach (var (garage, isDemonstrator, liveries) in groups)
         {
-            var kind = GarageReplacements.KindFor(garage, isDemonstrator);
+            var kind = SlotChoices.KindFor(garage, isDemonstrator);
             foreach (var livery in liveries)
             {
                 DrawReplacementRow(livery, kind);
                 if (kind == SlotKind.Demonstrator)
                 {
                     DrawDemonstratorExtras(livery.id, Main.Settings.GetReplacement(livery) ?? livery,
-                        GarageVehicles.OriginalTender(garage));
+                        VanillaGarages.OriginalTender(garage));
                 }
             }
             if (!isDemonstrator)
@@ -168,7 +168,7 @@ internal static class SettingsGUI
         }
         if (!string.IsNullOrEmpty(replacementId) && GUILayout.Button("Clear", GUILayout.Width(50)))
         {
-            GarageReplacements.Select(livery, null);
+            SlotChoices.Select(livery, null);
             if (_openPickerFor == livery.id) _openPickerFor = null;
         }
         GUILayout.EndHorizontal();
@@ -270,23 +270,28 @@ internal static class SettingsGUI
         GUILayout.Label(AdditionalSlotsText);
         GUILayout.Space(4);
 
+        int stallsLeft = MuseumStalls.All.Count;
+
         foreach (var slot in Main.Settings.AdditionalSlots.ToList())
         {
             var loco = GetLiveryById(slot.LocoId);
             string name = loco != null ? Loc(loco.localizationKey, loco.id) : $"? {slot.LocoId}";
+            bool hasStall = !slot.Home.HasValue && stallsLeft-- > 0;
 
             GUILayout.BeginHorizontal();
             GUILayout.Label(name, GUILayout.Width(220));
             GUILayout.Label($"[{slot.LocoId}]", GUILayout.Width(220));
-            if (GUILayout.Button("Remove", GUILayout.Width(70)))
+            bool remove = GUILayout.Button("Remove", GUILayout.Width(70));
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            if (remove)
             {
                 Main.Settings.RemoveAdditionalSlot(slot.LocoId);
                 continue;
             }
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal();
 
-            DrawHomeRow(slot);
+            if (!hasStall) DrawHomeRow(slot);
             if (loco != null)
                 DrawDemonstratorExtras(slot.LocoId, loco, null);
         }
@@ -336,35 +341,18 @@ internal static class SettingsGUI
             SearchPicker.Draw(AdditionalKey, AdditionalSlotOptions());
     }
 
-    // Which roundhouse stall the slot got. One out of the mod's own list is read-only — there is nothing
-    // to decide. A slot added past that list has no stall to show, so it gets the placement controls.
     private static void DrawHomeRow(Settings.AdditionalSlot slot)
     {
+        var anchor = DemonstratorSlots.Template()?.garageSpawner?.locoSpawnPoint?.transform;
+        var player = PlayerManager.PlayerTransform;
+
         GUILayout.BeginHorizontal();
         GUILayout.Space(20);
-        GUILayout.Label("Stall:", GUILayout.Width(80));
-        GUILayout.Label(StallLabel(slot), GUILayout.Width(300));
+        GUILayout.Label("Placement:", GUILayout.Width(80));
+        GUILayout.Label(PlacementLabel(slot, anchor), GUILayout.Width(230));
 
-        if (string.IsNullOrEmpty(slot.Stall))
-            DrawPlacementControls(slot);
-
-        GUILayout.FlexibleSpace();
-        GUILayout.EndHorizontal();
-    }
-
-    private static void DrawPlacementControls(Settings.AdditionalSlot slot)
-    {
-        // Placement is relative to a museum marker that only exists in a loaded world, and the player has
-        // to be standing on the track in any case.
-        var anchor = DemonstratorSlotFactory.Template()?.garageSpawner?.locoSpawnPoint?.transform;
-        var player = PlayerManager.PlayerTransform;
-        if (anchor == null || player == null)
-        {
-            GUILayout.Label("(load a save and stand on a track to place)", GUILayout.Width(250));
-            return;
-        }
-
-        if (GUILayout.Button("Set to where I'm standing", GUILayout.Width(190)))
+        if (anchor != null && player != null
+            && GUILayout.Button("Set to where I'm standing", GUILayout.Width(190)))
         {
             Main.Settings.SetAdditionalSlotHome(slot.LocoId,
                 anchor.InverseTransformPoint(player.position),
@@ -373,21 +361,36 @@ internal static class SettingsGUI
 
         if (slot.Home.HasValue && GUILayout.Button("Clear", GUILayout.Width(50)))
             Main.Settings.SetAdditionalSlotHome(slot.LocoId, null, 0f);
+
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
     }
 
-    private static string StallLabel(Settings.AdditionalSlot slot)
+    private static string PlacementLabel(Settings.AdditionalSlot slot, Transform? anchor)
     {
-        if (!string.IsNullOrEmpty(slot.Stall)) return slot.Stall!;
-        return slot.Home.HasValue
-            ? "Placed by hand"
-            : "Not placed — shares another demonstrator's stall";
+        if (!slot.Home.HasValue) return "No stall left — place it by hand";
+        if (anchor == null) return "Placed by hand";
+        return PlacedTrack(slot, anchor) ?? "Placed by hand — no track nearby";
+    }
+
+    // Resolving a placement searches every track in the world, so we cache after it is placed
+    private static readonly Dictionary<string, (Vector3 home, string? track)> _placedTracks = [];
+
+    private static string? PlacedTrack(Settings.AdditionalSlot slot, Transform anchor)
+    {
+        if (slot.Home is not Vector3 home) return null;
+        if (_placedTracks.TryGetValue(slot.LocoId, out var cached) && cached.home == home) return cached.track;
+
+        var track = SlotScene.TrackNameAt(anchor.TransformPoint(home));
+        _placedTracks[slot.LocoId] = (home, track);
+        return track;
     }
 
     private static IEnumerable<SearchPicker.Option> AdditionalSlotOptions()
     {
         foreach (var candidate in _candidateLiveries!)
         {
-            if (!GarageReplacements.CanBeAdditionalSlot(candidate)) continue;
+            if (!SlotChoices.CanBeAdditionalSlot(candidate)) continue;
 
             var chosen = candidate;
             yield return new(Loc(chosen.localizationKey, chosen.id), chosen.id, () =>
@@ -402,7 +405,7 @@ internal static class SettingsGUI
     {
         foreach (var candidate in _candidateLiveries!)
         {
-            if (!GarageReplacements.CanAddExtraCar(candidate)) continue;
+            if (!SlotChoices.CanAddExtraCar(candidate)) continue;
 
             var chosen = candidate;
             yield return new(Loc(chosen.localizationKey, chosen.id), chosen.id, () =>
@@ -415,7 +418,7 @@ internal static class SettingsGUI
 
     private static string TenderLabel(string slotId, TrainCarLivery? originalTender)
     {
-        var resolved = GarageReplacements.ResolveTender(slotId, originalTender);
+        var resolved = SlotChoices.ResolveTender(slotId, originalTender);
         bool isDefault = string.IsNullOrEmpty(Main.Settings.GetTenderId(slotId));
         if (resolved == null)
             return $"{DefaultTenderLabel} → (none)";
@@ -433,7 +436,7 @@ internal static class SettingsGUI
 
         foreach (var candidate in _candidateTenders!)
         {
-            if (!GarageReplacements.CanSelectTender(slotId, originalTender, candidate)) continue;
+            if (!SlotChoices.CanSelectTender(slotId, originalTender, candidate)) continue;
 
             var chosen = candidate;
             yield return new(Loc(chosen.localizationKey, chosen.id), chosen.id, () =>
@@ -477,7 +480,7 @@ internal static class SettingsGUI
         foreach (var cargo in _candidateCargos!)
         {
             // Only offer cargos the parts flatcar can actually load, but never hide an existing choice.
-            if (cargo.id != currentChoice && !GarageReplacements.CanBeRestorationParts(cargo)) continue;
+            if (cargo.id != currentChoice && !SlotChoices.CanBeRestorationParts(cargo)) continue;
 
             var chosen = cargo;
             yield return new(Loc(chosen.localizationKeyFull, chosen.id), chosen.id, () =>
@@ -508,14 +511,14 @@ internal static class SettingsGUI
     {
         yield return new(NoReplacementLabel, null, () =>
         {
-            GarageReplacements.Select(slot, null);
+            SlotChoices.Select(slot, null);
             _openPickerFor = null;
         });
 
         foreach (var candidate in _candidateLiveries!)
         {
             if (candidate.id == slot.id) continue;
-            if (!GarageReplacements.CanSelect(slot, kind, candidate)) continue;
+            if (!SlotChoices.CanSelect(slot, kind, candidate)) continue;
 
             var chosen = candidate;
             yield return new(
@@ -523,11 +526,11 @@ internal static class SettingsGUI
                 chosen.id,
                 () =>
                 {
-                    GarageReplacements.Select(slot, chosen.id);
+                    SlotChoices.Select(slot, chosen.id);
                     _openPickerFor = null;
                 },
                 // Flag candidates another garage already spawns so the player knows clicking swaps them.
-                GarageReplacements.IsClaimedByOther(slot, chosen.id) ? "  ↔ swaps" : "");
+                SlotChoices.IsClaimedByOther(slot, chosen.id) ? "  ↔ swaps" : "");
         }
     }
 }

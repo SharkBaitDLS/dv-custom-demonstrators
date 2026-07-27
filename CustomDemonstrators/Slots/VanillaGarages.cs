@@ -8,7 +8,7 @@ namespace CustomDemonstrators.Slots;
 
 // Enumerates the rolling stock spawned by the game's garages, grouped per garage and split into
 // demonstrators vs. ordinary garage stock.
-internal static class GarageVehicles
+internal static class VanillaGarages
 {
     // Demonstrator spawns are modelled as "garages"
     internal static readonly HashSet<Garage> DemonstratorGarages =
@@ -32,7 +32,7 @@ internal static class GarageVehicles
         return ids;
     }
 
-    // Pristine copy of each garage's liveries, captured before GarageReplacementApplier rewrites the
+    // Pristine copy of each garage's liveries, captured before GarageLiveries rewrites the
     // live game data.
     private static readonly Dictionary<GarageType_v2, TrainCarLivery[]> _originals = [];
 
@@ -86,7 +86,7 @@ internal static class GarageVehicles
             if (garage == null || garage.v1 == Garage.NotSet) continue;
             // Slots this mod creates are configured from their own settings list, not as rows built from
             // game data, so they never take part in the replacement grouping.
-            if (DemonstratorSlotFactory.IsSlotGarage(garage)) continue;
+            if (SlotTypes.IsSlotGarage(garage)) continue;
             bool demonstrator = IsDemonstrator(garage.v1);
 
             List<TrainCarLivery> liveries;

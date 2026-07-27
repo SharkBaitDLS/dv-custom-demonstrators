@@ -67,9 +67,16 @@ internal static class RestorationPartsCustomizer
 
     internal static void ApplyCargo(LocoRestorationController controller, string slotId, TrainCarLivery? replacementLoco)
     {
+        ChooseCargo(controller, slotId, replacementLoco);
+        // Whatever the choice turned out to be, the warehouse has to be willing to load it.
+        PartsWarehouse.EnsureSupported(controller);
+    }
+
+    private static void ChooseCargo(LocoRestorationController controller, string slotId, TrainCarLivery? replacementLoco)
+    {
         // Snapshots exist to put a shared game cargo back the way we found it. A slot added by this mod
         // only ever rewrites a copy it owns, and gets a fresh one each load, so it has nothing to restore.
-        if (!DemonstratorSlotFactory.IsSlotGarage(controller.garageSpawner?.garageType))
+        if (!SlotTypes.IsSlotGarage(controller.garageSpawner?.garageType))
             EnsureSnapshot(slotId, controller.locoPartCargo);
 
         var choice = Main.Settings.GetPartsCargoId(slotId);
@@ -77,7 +84,7 @@ internal static class RestorationPartsCustomizer
         if (!string.IsNullOrEmpty(choice) && choice != GenericCrateSentinel)
         {
             var picked = FindCargo(choice!);
-            if (picked != null && GarageReplacements.CanBeRestorationParts(picked))
+            if (picked != null && SlotChoices.CanBeRestorationParts(picked))
             {
                 controller.locoPartCargo = picked; // use the chosen cargo (and its model) as-is
                 SyncRegisterNames(controller);
@@ -113,7 +120,7 @@ internal static class RestorationPartsCustomizer
 
         // Past this point the cargo gets rewritten in place, so an added slot needs the copy it owns
         // rather than the template's.
-        if (DemonstratorSlotFactory.OwnCargoFor(controller) is CargoType_v2 own)
+        if (DemonstratorSlots.OwnCargoFor(controller) is CargoType_v2 own)
             controller.locoPartCargo = own;
 
         Customize(controller.locoPartCargo, replacementLoco);
@@ -189,11 +196,11 @@ internal static class RestorationPartsCustomizer
         int bestScore = 0;
         foreach (var cargo in cargos)
         {
-            if (cargo == null || !GarageReplacements.CanBeRestorationParts(cargo)) continue;
+            if (cargo == null || !SlotChoices.CanBeRestorationParts(cargo)) continue;
             // Don't detect a cargo we ourselves created
             if (cargo.localizationKeyFull?.StartsWith(RewrittenKeyPrefix, StringComparison.Ordinal) == true)
                 continue;
-            if (DemonstratorSlotFactory.IsSlotCargo(cargo)) continue;
+            if (SlotTypes.IsSlotCargo(cargo)) continue;
             string cargoId = Normalize(cargo.id);
             string cargoName = Normalize(LocalizationAPI.L(cargo.localizationKeyFull));
 

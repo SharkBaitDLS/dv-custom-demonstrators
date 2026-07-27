@@ -1,8 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using DV.LocoRestoration;
 using DV.Utils;
 using UnityEngine;
+using CustomDemonstrators.Saves;
 
 namespace CustomDemonstrators.Slots;
 
@@ -29,49 +30,64 @@ internal static class MuseumStalls
 
     internal static IReadOnlyList<string> All => Prescribed;
 
-    // The first prescribed stall nothing else has taken, or null when they are all spoken for.
-    internal static string? ClaimFree()
+    internal static int FreeCount() =>
+        Math.Max(0, Prescribed.Length - Main.Settings.AdditionalSlots.Count(s => !s.Home.HasValue));
+
+    private const string StallLocosKey = "CustomDemonstrators_StallLocos";
+    private const string StallTracksKey = "CustomDemonstrators_StallTracks";
+
+    private static Dictionary<string, string>? _saved;
+
+    internal static void Reset() => _saved = null;
+
+    private static Dictionary<string, string> Saved()
     {
-        var taken = Taken();
-        return Prescribed.FirstOrDefault(s => !taken.Contains(s));
+        if (_saved != null) return _saved;
+
+        _saved = [];
+        var data = SaveState.Data();
+        var locos = data?.GetStringArray(StallLocosKey);
+        var tracks = data?.GetStringArray(StallTracksKey);
+        if (locos == null || tracks == null) return _saved;
+
+        for (int i = 0; i < Math.Min(locos.Length, tracks.Length); i++) _saved[locos[i]] = tracks[i];
+        return _saved;
     }
 
-    internal static int FreeCount()
+    private static void Persist()
     {
-        var taken = Taken();
-        return Prescribed.Count(s => !taken.Contains(s));
+        var data = SaveState.Data();
+        if (data == null || _saved == null) return;
+        data.SetStringArray(StallLocosKey, [.. _saved.Keys]);
+        data.SetStringArray(StallTracksKey, [.. _saved.Values]);
     }
 
-    internal static HashSet<string> Taken()
+    // Hands a removed slot's stall back, so the next one added can have it.
+    internal static void Release(string locoId)
     {
-        var taken = new HashSet<string>();
-
-        foreach (var controller in LocoRestorationController.allLocoRestorationControllers)
-        {
-            if (controller != null && !string.IsNullOrEmpty(controller.destinationTrackId))
-                taken.Add(controller.destinationTrackId);
-        }
-        foreach (var slot in Main.Settings.AdditionalSlots)
-        {
-            if (!string.IsNullOrEmpty(slot.Stall)) taken.Add(slot.Stall!);
-        }
-        return taken;
+        if (Saved().Remove(locoId)) Persist();
     }
 
-    // The stall a slot should use, claiming one on the spot if it has none yet.
+    // The stall a slot should use, claiming one on the spot if it has none yet. Ensures that
+    // even if a user does a force respawn that re-orders locomotives that were already present,
+    // they keep their existing allocations and only the new locomotives are assigned new stalls.
     internal static string? StallFor(string locoId)
     {
-        var slot = Main.Settings.GetAdditionalSlot(locoId);
-        if (slot == null) return null;
-        if (!string.IsNullOrEmpty(slot.Stall)) return slot.Stall;
+        var saved = Saved();
+        if (saved.TryGetValue(locoId, out var kept) && !string.IsNullOrEmpty(kept)) return kept;
 
-        slot.Stall = ClaimFree();
-        if (slot.Stall == null)
+        var held = new HashSet<string>(saved.Values.Where(s => !string.IsNullOrEmpty(s)));
+        var stall = Prescribed.FirstOrDefault(s => !held.Contains(s));
+        if (string.IsNullOrEmpty(stall))
         {
             Main.Logger.Warning($"No free museum stall left for '{locoId}'. Give it a track by hand in the "
                 + "mod menu, or it will share another demonstrator's track.");
+            return null;
         }
-        return slot.Stall;
+
+        saved[locoId] = stall!;
+        Persist();
+        return stall;
     }
 
     private static RailTrack? Track(string? name) =>

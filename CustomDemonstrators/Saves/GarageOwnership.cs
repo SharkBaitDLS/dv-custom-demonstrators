@@ -20,7 +20,7 @@ internal static class GarageOwnership
         if (!UnlockedGarageIds().Contains(garage.id)) return false;
         var types = OwnedCarTypes();
         if (types.Count == 0) return false;
-        return GarageVehicles.OriginalLiveries(garage).Any(l => l != null && types.Contains((int)l.v1));
+        return VanillaGarages.OriginalLiveries(garage).Any(l => l != null && types.Contains((int)l.v1));
     }
 
     internal static void ResetForNewSave()

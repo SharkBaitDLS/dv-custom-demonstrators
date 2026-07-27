@@ -16,7 +16,7 @@ internal enum SlotKind
 
 // Enforces the game's rule that exactly one livery can be spawned in the entire demonstrator/garage
 // pool. When the player picks a replacement that another slot already spawns, the two slots swap.
-internal static class GarageReplacements
+internal static class SlotChoices
 {
     // The restoration parts cargos (one per demonstrator). A replacement for the utility flatcar must
     // be able to carry all of them, since the single flatcar hauls parts for whichever demonstrator.
@@ -40,7 +40,7 @@ internal static class GarageReplacements
         : SlotKind.Garage;
 
     private static IEnumerable<(TrainCarLivery livery, SlotKind kind)> AllSlots() =>
-        GarageVehicles.Groups.SelectMany(g => g.liveries.Select(l => (l, KindFor(g.garage, g.isDemonstrator))));
+        VanillaGarages.Groups.SelectMany(g => g.liveries.Select(l => (l, KindFor(g.garage, g.isDemonstrator))));
 
     private static TrainCarLivery? GetLivery(string id) =>
         Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == id);
@@ -129,14 +129,14 @@ internal static class GarageReplacements
     // demonstrator/garage pool.
     internal static IEnumerable<string> AllSpawnedIds()
     {
-        foreach (var (garage, isDemonstrator, liveries) in GarageVehicles.Groups)
+        foreach (var (garage, isDemonstrator, liveries) in VanillaGarages.Groups)
         {
             if (isDemonstrator)
             {
                 var primary = liveries.FirstOrDefault();
                 if (primary == null) continue;
                 yield return CurrentSpawnId(primary);
-                var second = ResolveTender(primary.id, GarageVehicles.OriginalTender(garage));
+                var second = ResolveTender(primary.id, VanillaGarages.OriginalTender(garage));
                 if (second != null) yield return second.id;
             }
             else
@@ -176,7 +176,7 @@ internal static class GarageReplacements
     private static HashSet<string> ExtraCarIds()
     {
         var ids = new HashSet<string>();
-        foreach (var (garage, isDemonstrator, _) in GarageVehicles.Groups)
+        foreach (var (garage, isDemonstrator, _) in VanillaGarages.Groups)
         {
             if (isDemonstrator) continue;
             foreach (var extra in Main.Settings.GetExtraCars(garage.id))
@@ -188,7 +188,7 @@ internal static class GarageReplacements
     // The id of the garage a slot livery belongs to, if any.
     private static string? GarageIdForSlot(TrainCarLivery slot)
     {
-        foreach (var (garage, isDemonstrator, liveries) in GarageVehicles.Groups)
+        foreach (var (garage, isDemonstrator, liveries) in VanillaGarages.Groups)
         {
             if (isDemonstrator) continue;
             if (liveries.Any(l => l != null && l.id == slot.id)) return garage.id;
@@ -204,12 +204,12 @@ internal static class GarageReplacements
     private static HashSet<string> TenderIds()
     {
         var ids = new HashSet<string>();
-        foreach (var (garage, isDemonstrator, liveries) in GarageVehicles.Groups)
+        foreach (var (garage, isDemonstrator, liveries) in VanillaGarages.Groups)
         {
             if (!isDemonstrator) continue;
             var primary = liveries.FirstOrDefault();
             if (primary == null) continue;
-            var second = ResolveTender(primary.id, GarageVehicles.OriginalTender(garage));
+            var second = ResolveTender(primary.id, VanillaGarages.OriginalTender(garage));
             if (second != null) ids.Add(second.id);
         }
         return ids;
@@ -230,7 +230,7 @@ internal static class GarageReplacements
 
     private static TrainCarLivery? RestorationFlatcar()
     {
-        foreach (var (garage, isDemonstrator, liveries) in GarageVehicles.Groups)
+        foreach (var (garage, isDemonstrator, liveries) in VanillaGarages.Groups)
         {
             if (isDemonstrator || garage.v1 != Garage.Museum_FlatbedShort) continue;
             var slot = liveries.FirstOrDefault();
@@ -248,7 +248,7 @@ internal static class GarageReplacements
     // After the flatcar changes, drop any explicit parts-cargo overrides the new flatcar can't carry.
     private static void PruneInvalidCargoOverrides()
     {
-        foreach (var (_, isDemonstrator, liveries) in GarageVehicles.Groups)
+        foreach (var (_, isDemonstrator, liveries) in VanillaGarages.Groups)
         {
             if (!isDemonstrator) continue;
             var primary = liveries.FirstOrDefault();

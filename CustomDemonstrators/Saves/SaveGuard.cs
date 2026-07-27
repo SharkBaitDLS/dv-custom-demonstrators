@@ -88,12 +88,12 @@ internal static class SaveGuard
         _forcedDemo = true;
         _allowDemo = null;
         AllowDemonstratorChanges();
-        GarageReplacementApplier.Apply();
+        GarageLiveries.Apply();
         // Add and remove the mod's own slots before respawning, so the loop below sees the final set and a
         // slot that was just taken apart isn't handed a fresh wreck on its way out.
-        DemonstratorSlotFactory.Reconcile();
+        DemonstratorSlots.Reconcile();
         foreach (var controller in LocoRestorationController.allLocoRestorationControllers.ToList())
-            GarageReplacementApplier.ReinitializeDemonstrator(controller);
+            DemonstratorRespawner.ReinitializeDemonstrator(controller);
         CommsRadioRefresher.Refresh();
     }
 
@@ -102,7 +102,7 @@ internal static class SaveGuard
         _forcedGarage = true;
         _allowGarage = null;
         AllowGarageChanges();
-        GarageReplacementApplier.Apply();
+        GarageLiveries.Apply();
         WorkTrainGarages.ReinitializeAll();
         CommsRadioRefresher.Refresh();
     }
@@ -110,13 +110,13 @@ internal static class SaveGuard
     internal static string DemonstratorFingerprint()
     {
         var entries = new List<(string PrimaryId, string SpawnId, string? TenderId)>();
-        foreach (var (garage, isDemonstrator, liveries) in GarageVehicles.Groups)
+        foreach (var (garage, isDemonstrator, liveries) in VanillaGarages.Groups)
         {
             if (!isDemonstrator) continue;
             var primary = liveries.FirstOrDefault();
             if (primary == null) continue;
-            var tender = GarageReplacements.ResolveTender(primary.id, GarageVehicles.OriginalTender(garage));
-            entries.Add((primary.id, GarageReplacements.CurrentSpawnId(primary), tender?.id));
+            var tender = SlotChoices.ResolveTender(primary.id, VanillaGarages.OriginalTender(garage));
+            entries.Add((primary.id, SlotChoices.CurrentSpawnId(primary), tender?.id));
         }
 
         // Slots this mod adds are part of what a save was baked with, so adding or removing one has to
@@ -134,12 +134,12 @@ internal static class SaveGuard
     internal static string GarageFingerprint()
     {
         var sb = new StringBuilder();
-        foreach (var (garage, isDemonstrator, liveries) in GarageVehicles.Groups)
+        foreach (var (garage, isDemonstrator, liveries) in VanillaGarages.Groups)
         {
             if (isDemonstrator) continue;
             sb.Append(garage.id).Append('=');
             foreach (var livery in liveries)
-                sb.Append(GarageReplacements.CurrentSpawnId(livery)).Append(',');
+                sb.Append(SlotChoices.CurrentSpawnId(livery)).Append(',');
             foreach (var extra in Main.Settings.GetExtraCars(garage.id))
                 sb.Append('+').Append(extra);
             sb.Append(';');

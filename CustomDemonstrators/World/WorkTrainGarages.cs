@@ -9,17 +9,11 @@ using CustomDemonstrators.Slots;
 
 namespace CustomDemonstrators.World;
 
-// Brings the ordinary (non-demonstrator) garages in line with the configured replacements while a world is
-// already running, for the force-respawn button.
-//
-// Unlike a demonstrator, an opened garage has no quest state to preserve: the work is entirely about the
-// cars standing in it. One still parked on its spawn point has to go, or it blocks its own replacement;
-// one the player has driven away is theirs to keep, so it's only cut loose from the garage.
 internal static class WorkTrainGarages
 {
     internal static void ReinitializeAll()
     {
-        foreach (var (garage, isDemonstrator, _) in GarageVehicles.Groups)
+        foreach (var (garage, isDemonstrator, _) in VanillaGarages.Groups)
         {
             if (isDemonstrator) continue;
             if (SpawnerFor(garage) is GarageCarSpawner spawner) Reconcile(spawner);

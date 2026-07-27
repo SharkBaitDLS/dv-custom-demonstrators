@@ -5,7 +5,6 @@ using DV;
 using DV.ThingTypes;
 using UnityEngine;
 using UnityModManagerNet;
-using CustomDemonstrators.Slots;
 
 namespace CustomDemonstrators.Config;
 
@@ -58,7 +57,6 @@ public class Settings : UnityModManager.ModSettings
         get => [.. AdditionalSlots.Select(s => new AdditionalSlotEntry
         {
             LocoId = s.LocoId,
-            Stall = s.Stall ?? "",
             HasHome = s.Home.HasValue,
             HomeX = s.Home?.x ?? 0f,
             HomeY = s.Home?.y ?? 0f,
@@ -72,7 +70,6 @@ public class Settings : UnityModManager.ModSettings
             .Select(e => new AdditionalSlot
             {
                 LocoId = e.LocoId,
-                Stall = string.IsNullOrEmpty(e.Stall) ? null : e.Stall,
                 Home = e.HasHome ? new Vector3(e.HomeX, e.HomeY, e.HomeZ) : null,
                 HomeYaw = e.HomeYaw,
             })];
@@ -179,7 +176,7 @@ public class Settings : UnityModManager.ModSettings
     internal void AddAdditionalSlot(string locoId)
     {
         if (IsAdditionalSlot(locoId)) return;
-        AdditionalSlots.Add(new AdditionalSlot { LocoId = locoId, Stall = MuseumStalls.ClaimFree() });
+        AdditionalSlots.Add(new AdditionalSlot { LocoId = locoId });
     }
 
     // Drops the slot along with the quest tuning that only existed to serve it.
@@ -200,10 +197,7 @@ public class Settings : UnityModManager.ModSettings
     {
         public string LocoId = "";
 
-        // The roundhouse stall this slot claimed, by track name
-        public string? Stall;
-
-        // A stall position placed by hand instead if a user opts in to go past the slot limit.
+        // A position placed by hand, which takes precedence over any museum stall.
         public Vector3? Home;
         public float HomeYaw;
     }
@@ -211,7 +205,6 @@ public class Settings : UnityModManager.ModSettings
     public class AdditionalSlotEntry
     {
         [XmlAttribute] public string LocoId { get; set; } = "";
-        [XmlAttribute] public string Stall { get; set; } = "";
         [XmlAttribute] public bool HasHome { get; set; }
         [XmlAttribute] public float HomeX { get; set; }
         [XmlAttribute] public float HomeY { get; set; }
