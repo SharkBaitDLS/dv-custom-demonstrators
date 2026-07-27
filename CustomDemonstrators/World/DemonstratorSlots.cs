@@ -156,7 +156,8 @@ internal static class DemonstratorSlots
         var built = new BuiltSlot { Garage = garage };
         _slots[locoId] = built;
 
-        built.Home = SlotScene.CreateHome(locoId, template.garageSpawner, out var stall);
+        var home = SlotScene.CreateHome(locoId, template.garageSpawner);
+        built.Home = home.Marker;
         built.Spawner = SlotScene.CreateSpawner(locoId, garage, built.Home, template.garageSpawner);
         built.Register = SlotScene.FindRegister(template.orderPartsModule);
         (built.Order, built.Install) = SlotScene.CreateRegisterModules(locoId, template, built.Register);
@@ -164,7 +165,7 @@ internal static class DemonstratorSlots
 
         built.Controller = SlotScene.CreateController(
             loco, tender, template, built.Spawner, built.Order, built.Install, spawnPoints,
-            SlotScene.DestinationTrackFor(locoId, stall, built.Home, template.destinationTrackId));
+            SlotScene.DestinationTrackFor(locoId, home, template.destinationTrackId));
         DemonstratorRespawner.SettleNewDemonstrator(built.Controller);
 
         Main.Logger.Log($"Built additional demonstrator slot for {locoId}.");

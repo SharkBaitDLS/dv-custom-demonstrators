@@ -7,33 +7,45 @@ using DV.Shops;
 using DV.ThingTypes;
 using HarmonyLib;
 using UnityEngine;
+using CustomDemonstrators.Saves;
 using CustomDemonstrators.Slots;
 
 namespace CustomDemonstrators.World;
 
 internal static class SlotScene
 {
-    internal static GameObject CreateHome(string locoId, GarageCarSpawner template, out string? stall)
+    // Where a slot ended up, so the pieces built after the marker don't have to work it out again.
+    internal readonly struct SlotHome(GameObject marker, string? stall, bool placed)
+    {
+        internal readonly GameObject Marker = marker;
+
+        // The museum stall it claimed, if it got one.
+        internal readonly string? Stall = stall;
+
+        // Whether it sits where the player put it rather than in a stall.
+        internal readonly bool Placed = placed;
+    }
+
+    internal static SlotHome CreateHome(string locoId, GarageCarSpawner template)
     {
         var anchor = template.locoSpawnPoint.transform;
         var marker = new GameObject($"CustomDemonstrators_{locoId}_Home");
         marker.transform.SetParent(anchor, worldPositionStays: false);
-        stall = null;
 
-        var slot = Main.Settings.GetAdditionalSlot(locoId);
-        if (slot?.Home is Vector3 offset)
+        // Settings only speak for a save they were baked into; otherwise the save's own record is all we have.
+        var placement = Placement(locoId);
+        if (placement is (Vector3 offset, float yaw))
         {
             marker.transform.localPosition = offset;
-            marker.transform.localRotation = Quaternion.Euler(0f, slot.HomeYaw, 0f);
-            return marker;
+            marker.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            return new SlotHome(marker, null, placed: true);
         }
 
         var claimed = MuseumStalls.StallFor(locoId);
         if (MuseumStalls.Midpoint(claimed) is Vector3 midpoint)
         {
             marker.transform.position = midpoint;
-            stall = claimed;
-            return marker;
+            return new SlotHome(marker, claimed, placed: false);
         }
 
         if (!string.IsNullOrEmpty(claimed))
@@ -47,7 +59,19 @@ internal static class SlotScene
             Main.Logger.Warning($"Additional demonstrator '{locoId}' has no stall and will share the "
                 + "template slot's.");
         }
-        return marker;
+        return new SlotHome(marker, null, placed: false);
+    }
+
+    // The placement to build this slot at, taken from the settings while they're the ones this save was baked
+    // from and copied into the save as we go, so a later load can rebuild it without them.
+    private static (Vector3 Offset, float Yaw)? Placement(string locoId)
+    {
+        if (!SaveGuard.AllowDemonstratorChanges()) return MuseumStalls.PlacementFor(locoId);
+
+        var slot = Main.Settings.GetAdditionalSlot(locoId);
+        var placement = slot?.Home is Vector3 offset ? (offset, slot.HomeYaw) : ((Vector3, float)?)null;
+        MuseumStalls.RecordPlacement(locoId, placement);
+        return placement;
     }
 
     internal static GarageCarSpawner CreateSpawner(
@@ -140,15 +164,15 @@ internal static class SlotScene
 
     internal static string? TrackNameAt(Vector3 position) => RailTrack.GetClosest(position).track?.name;
 
-    internal static string DestinationTrackFor(string locoId, string? stall, GameObject? home, string fallback)
+    internal static string DestinationTrackFor(string locoId, SlotHome home, string fallback)
     {
         // A stall claimed by name needs no searching
-        if (!string.IsNullOrEmpty(stall)) return stall!;
+        if (!string.IsNullOrEmpty(home.Stall)) return home.Stall!;
 
         // A hand-placed slot has to find the right spot
-        if (home == null || Main.Settings.GetAdditionalSlot(locoId)?.Home == null) return fallback;
+        if (!home.Placed || home.Marker == null) return fallback;
 
-        var track = TrackNameAt(home.transform.position);
+        var track = TrackNameAt(home.Marker.transform.position);
         if (track == null)
         {
             Main.Logger.Warning($"Additional demonstrator '{locoId}' found no track near its garage position; "

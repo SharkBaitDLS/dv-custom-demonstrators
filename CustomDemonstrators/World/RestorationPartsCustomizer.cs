@@ -14,6 +14,7 @@ using DVLangHelper.Runtime;
 using HarmonyLib;
 using I2.Loc;
 using UnityEngine;
+using CustomDemonstrators.Saves;
 using CustomDemonstrators.Slots;
 
 namespace CustomDemonstrators.World;
@@ -79,7 +80,7 @@ internal static class RestorationPartsCustomizer
         if (!SlotTypes.IsSlotGarage(controller.garageSpawner?.garageType))
             EnsureSnapshot(slotId, controller.locoPartCargo);
 
-        var choice = Main.Settings.GetPartsCargoId(slotId);
+        var choice = CargoChoice(slotId);
 
         if (!string.IsNullOrEmpty(choice) && choice != GenericCrateSentinel)
         {
@@ -125,6 +126,18 @@ internal static class RestorationPartsCustomizer
 
         Customize(controller.locoPartCargo, replacementLoco);
         SyncRegisterNames(controller);
+    }
+
+    private static readonly SavedMap _bakedCargo =
+        new("CustomDemonstrators_CargoSlots", "CustomDemonstrators_CargoChoices");
+
+    private static string? CargoChoice(string slotId)
+    {
+        if (!SaveGuard.AllowDemonstratorChanges()) return _bakedCargo.Get(slotId);
+
+        var choice = Main.Settings.GetPartsCargoId(slotId);
+        _bakedCargo.Set(slotId, string.IsNullOrEmpty(choice) ? null : choice);
+        return choice;
     }
 
     // Point the order/install cash registers at the active cargo's name so the purchase receipt reads
@@ -175,7 +188,11 @@ internal static class RestorationPartsCustomizer
         SyncRegisterNames(controller);
     }
 
-    internal static void Reset() => _snapshots.Clear();
+    internal static void Reset()
+    {
+        _snapshots.Clear();
+        _bakedCargo.Reset();
+    }
 
     internal static CargoType_v2? FindCargo(string id) =>
         Globals.G?.Types?.cargos?.FirstOrDefault(c => c != null && c.id == id);
