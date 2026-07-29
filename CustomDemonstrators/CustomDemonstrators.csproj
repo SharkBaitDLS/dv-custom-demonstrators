@@ -30,6 +30,12 @@
 		<Reference Include="DV.PointSet">
 			<HintPath>$(ReferencePath)DV.PointSet.dll</HintPath>
 		</Reference>
+		<Reference Include="DV.OriginShiftInfo">
+			<HintPath>$(ReferencePath)DV.OriginShiftInfo.dll</HintPath>
+		</Reference>
+		<Reference Include="net.smkd.vector3d">
+			<HintPath>$(ReferencePath)net.smkd.vector3d.dll</HintPath>
+		</Reference>
 		<Reference Include="BezierCurves">
 			<HintPath>$(ReferencePath)BezierCurves.dll</HintPath>
 		</Reference>
@@ -71,6 +77,18 @@
 		</Reference>
 		<Reference Include="UnityEngine.TextRenderingModule">
 			<HintPath>$(ReferencePath)UnityEngine.TextRenderingModule.dll</HintPath>
+		</Reference>
+		<Reference Include="UnityEngine.TerrainModule">
+			<HintPath>$(ReferencePath)UnityEngine.TerrainModule.dll</HintPath>
+		</Reference>
+		<Reference Include="UnityEngine.ImageConversionModule">
+			<HintPath>$(ReferencePath)UnityEngine.ImageConversionModule.dll</HintPath>
+		</Reference>
+		<Reference Include="Unity.TextMeshPro">
+			<HintPath>$(ReferencePath)Unity.TextMeshPro.dll</HintPath>
+		</Reference>
+		<Reference Include="UnityEngine.UI">
+			<HintPath>$(ReferencePath)UnityEngine.UI.dll</HintPath>
 		</Reference>
 	</ItemGroup>
 

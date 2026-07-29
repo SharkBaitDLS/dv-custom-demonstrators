@@ -20,6 +20,7 @@ internal static class DemonstratorSlots
         public GarageType_v2 Garage = null!;
         public GarageCarSpawner? Spawner;
         public GameObject? Home;
+        public GameObject? Board;
         public LocoRestorationController? Controller;
         public CashRegisterWithModules? Register;
         public GenericThingCashRegisterModule? Order;
@@ -166,6 +167,7 @@ internal static class DemonstratorSlots
         built.Controller = SlotScene.CreateController(
             loco, tender, template, built.Spawner, built.Order, built.Install, spawnPoints,
             SlotScene.DestinationTrackFor(locoId, home, template.destinationTrackId));
+        built.Board = SlotBoard.Create(locoId, template, home, built.Controller);
         DemonstratorRespawner.SettleNewDemonstrator(built.Controller);
 
         Main.Logger.Log($"Built additional demonstrator slot for {locoId}.");
@@ -191,6 +193,7 @@ internal static class DemonstratorSlots
         }
 
         SlotScene.DetachRegisterModules(slot.Register, slot.Order, slot.Install);
+        SlotBoard.Destroy(slot.Board);
 
         if (slot.Spawner != null) UnityEngine.Object.Destroy(slot.Spawner.gameObject);
         if (slot.Home != null) UnityEngine.Object.Destroy(slot.Home);
@@ -250,8 +253,9 @@ internal static class DemonstratorSlots
             .Distinct()];
 
     internal static IEnumerable<(string LocoId, GarageType_v2 Garage, LocoRestorationController? Controller,
-        CargoType_v2? OwnCargo, GameObject? Home)> LiveSlots() =>
-        _slots.Select(kv => (kv.Key, kv.Value.Garage, kv.Value.Controller, kv.Value.Cargo, kv.Value.Home));
+        CargoType_v2? OwnCargo, GameObject? Home, GameObject? Board)> LiveSlots() =>
+        _slots.Select(kv =>
+            (kv.Key, kv.Value.Garage, kv.Value.Controller, kv.Value.Cargo, kv.Value.Home, kv.Value.Board));
 
     private static TrainCarLivery? Livery(string id) =>
         Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == id);

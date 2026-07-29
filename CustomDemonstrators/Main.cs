@@ -12,9 +12,12 @@ public static class Main
 
     internal static UnityModManager.ModEntry.ModLogger Logger { get; private set; } = null!;
 
+    internal static string ModPath { get; private set; } = null!;
+
     private static bool Load(UnityModManager.ModEntry modEntry)
     {
         Logger = modEntry.Logger;
+        ModPath = modEntry.Path;
         Settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
 
         Harmony? harmony = null;

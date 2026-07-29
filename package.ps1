@@ -4,7 +4,9 @@ param (
 )
 
 Set-Location "$PSScriptRoot"
-$FilesToInclude = "info.json","build/*","LICENSE"
+# DemonstratorPosters ships as a folder players drop their own pictures into. It carries a README so the
+# folder survives being zipped and unzipped, and so it explains itself where they will actually read it.
+$FilesToInclude = "info.json","build/*","LICENSE","DemonstratorPosters"
 
 $modInfo = Get-Content -Raw -Path "info.json" | ConvertFrom-Json
 $modId = $modInfo.Id
@@ -20,7 +22,7 @@ $ZipOutDir = "$ZipWorkDir/$modId"
 # Start from a clean staging dir so files removed since the last build don't linger.
 if (Test-Path "$ZipOutDir") { Remove-Item -Recurse -Force "$ZipOutDir" }
 New-Item "$ZipOutDir" -ItemType Directory -Force
-Copy-Item -Force -Path $FilesToInclude -Destination "$ZipOutDir"
+Copy-Item -Force -Recurse -Path $FilesToInclude -Destination "$ZipOutDir"
 
 if (!$NoArchive)
 {

@@ -52,6 +52,23 @@ internal static class DemonstratorSetup
         if (loco != null)
             controller.locoLivery = replacementLoco ?? loco; // revert to vanilla when the override is cleared
 
+        // Update the quest board and poster image
+        if (loco != null)
+        {
+            var panel = controller.GetComponent<LocoRestorationView>();
+            SlotBoard.FitName(panel);
+            SlotBoard.Rename(panel, controller.locoLivery);
+
+            if (replacementLoco != null)
+            {
+                SlotPoster.Apply(controller.gameObject, replacementLoco.id);
+            }
+            else
+            {
+                SlotPoster.Restore(controller.gameObject);
+            }
+        }
+
         if (replacementLoco != null && controller.locoBlockerPrefab == null)
             controller.locoBlockerPrefab = OriginalBlocker(loco);
 

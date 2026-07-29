@@ -44,7 +44,7 @@ internal static class DebugCheats
         GUILayout.Label("Additional demonstrators (debug):", new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold });
         GUILayout.BeginVertical(GUI.skin.box);
 
-        foreach (var (locoId, garage, controller, ownCargo, home) in slots)
+        foreach (var (locoId, garage, controller, ownCargo, home, board) in slots)
         {
             GUILayout.Label($"{locoId} → garage {garage.id} (v1 {(int)garage.v1})");
             if (controller == null)
@@ -61,6 +61,7 @@ internal static class DebugCheats
                 + $", order ${controller.orderPartsModule?.price ?? -1f:N0}");
             GUILayout.Label($"    stall: {controller.destinationTrackId}"
                 + $" @ {(home != null ? home.transform.position.ToString("F1") : "none")}");
+            GUILayout.Label($"    board: {SlotBoard.Describe(board)}");
         }
 
         GUILayout.EndVertical();
