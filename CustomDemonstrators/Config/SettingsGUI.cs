@@ -40,9 +40,6 @@ internal static class SettingsGUI
     private static string ExtraKey(string garageId) => $"extra:{garageId}";
     private const string AdditionalKey = "additional";
 
-    // Edit buffers for the price text fields, keyed by "<slotId>:order" / "<slotId>:install"
-    private static readonly Dictionary<string, string> _priceText = [];
-
     private const string IntroText =
         """
         Choose a replacement for each Demonstrator and Garage spawn or add additional Demonstrators. The chosen stock spawns in place of the default when a new save is created.
@@ -211,18 +208,6 @@ internal static class SettingsGUI
         if (open)
             SearchPicker.Draw(CargoKey(slotId), CargoOptions(slotId));
 
-        GUILayout.BeginHorizontal();
-        GUILayout.Space(20);
-        GUILayout.Label("Order price:", GUILayout.Width(80));
-        DrawPriceField($"{slotId}:order", Main.Settings.GetOrderPrice(slotId),
-            v => Main.Settings.SetOrderPrice(slotId, v));
-        GUILayout.Space(12);
-        GUILayout.Label("Install price:", GUILayout.Width(80));
-        DrawPriceField($"{slotId}:install", Main.Settings.GetInstallPrice(slotId),
-            v => Main.Settings.SetInstallPrice(slotId, v));
-        GUILayout.Label("(blank = game default)");
-        GUILayout.FlexibleSpace();
-        GUILayout.EndHorizontal();
         GUILayout.Space(4);
     }
 
@@ -488,22 +473,6 @@ internal static class SettingsGUI
                 Main.Settings.SetPartsCargoId(slotId, chosen.id);
                 _openCargoPickerFor = null;
             });
-        }
-    }
-
-    private static void DrawPriceField(string fieldKey, float? current, System.Action<float?> set)
-    {
-        if (!_priceText.TryGetValue(fieldKey, out var text))
-            text = current.HasValue ? current.Value.ToString("0") : "";
-
-        var newText = GUILayout.TextField(text, GUILayout.Width(90));
-        _priceText[fieldKey] = newText;
-        if (newText != text)
-        {
-            if (string.IsNullOrWhiteSpace(newText))
-                set(null);
-            else if (float.TryParse(newText, out var v) && v >= 0f)
-                set(v);
         }
     }
 

@@ -99,14 +99,14 @@ internal static class DemonstratorSetup
                 controller.secondCarBlockerPrefab = OriginalBlocker(tender) ?? OriginalBlocker(loco) ?? controller.locoBlockerPrefab;
         }
 
-        // Price overrides. < 0 / unset = default.
-        var orderPrice = Main.Settings.GetOrderPrice(slotId);
-        if (orderPrice.HasValue && controller.orderPartsModule != null)
-            controller.orderPartsModule.price = orderPrice.Value;
+        if (controller.locoLivery != null)
+        {
+            if (CustomCarLoaderHelper.PartsOrderCostFor(controller.locoLivery) is float orderPrice)
+                controller.orderPartsModule?.price = orderPrice;
 
-        var installPrice = Main.Settings.GetInstallPrice(slotId);
-        if (installPrice.HasValue && controller.installPartsModule != null)
-            controller.installPartsModule.price = installPrice.Value;
+            if (CustomCarLoaderHelper.PartsInstallCostFor(controller.locoLivery) is float installPrice)
+                controller.installPartsModule?.price = installPrice;
+        }
     }
 
     internal static bool SpawnMatchesSettings(LocoRestorationController controller)
