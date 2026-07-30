@@ -50,3 +50,4 @@ Source code is distributed under the MIT license.
 See [LICENSE][license-url] for more information.
 
 [license-url]: https://github.com/SharkBaitDLS/dv-stock-car-remover/blob/main/LICENSE
+[references-url]: https://learn.microsoft.com/en-us/visualstudio/msbuild/customize-your-build?view=vs-2022
