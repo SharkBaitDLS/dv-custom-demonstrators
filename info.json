@@ -1,6 +1,6 @@
 {
 	"Id": "CustomDemonstrators",
-	"Version": "0.3.1",
+	"Version": "0.3.2",
 	"DisplayName": "Custom Demonstrators",
 	"Author": "SharkBaitDLS",
 	"EntryMethod": "CustomDemonstrators.Main.Load",
