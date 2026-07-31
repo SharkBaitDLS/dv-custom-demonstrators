@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using DV;
@@ -29,10 +30,12 @@ internal static class SlotChoices
         CargoType.TrainPartsDM3, CargoType.TrainPartsS060, CargoType.TrainPartsS282A,
     ];
 
-    internal static string CurrentSpawnId(TrainCarLivery slot) =>
-        Main.Settings.LiveryReplacements.TryGetValue(slot.id, out var r) && !string.IsNullOrEmpty(r)
+    internal static string CurrentSpawnId(TrainCarLivery slot) => CurrentSpawnId(slot.id);
+
+    internal static string CurrentSpawnId(string slotId) =>
+        Main.Settings.LiveryReplacements.TryGetValue(slotId, out var r) && !string.IsNullOrEmpty(r)
             ? r
-            : slot.id;
+            : slotId;
 
     internal static SlotKind KindFor(GarageType_v2 garage, bool isDemonstrator) =>
         isDemonstrator ? SlotKind.Demonstrator
@@ -111,6 +114,60 @@ internal static class SlotChoices
         var id = Main.Settings.GetTenderId(slotId);
         if (!string.IsNullOrEmpty(id)) return GetLivery(id!);
         return IsPrimaryReplaced(slotId) ? null : originalTender;
+    }
+
+    private static void InferTender(TrainCarLivery slot)
+    {
+        if (!IsPrimaryReplaced(slot.id)) return;
+
+        var loco = GetLivery(CurrentSpawnId(slot.id));
+        var tender = loco != null ? AutoTender(loco) : null;
+
+        // Never auto-claim a livery something else already spawns
+        if (tender != null && !AllSpawnedIds().Contains(tender.id))
+            Main.Settings.SetTenderId(slot.id, tender.id);
+    }
+
+    // Both sides of a swap are cleared before either is inferred, so a swap goes through properly
+    private static void InferTendersForSwap(params TrainCarLivery?[] slots)
+    {
+        foreach (var slot in slots)
+            if (slot != null && IsDemonstratorSlot(slot)) Main.Settings.SetTenderId(slot.id, null);
+        foreach (var slot in slots)
+            if (slot != null && IsDemonstratorSlot(slot)) InferTender(slot);
+    }
+
+    private static bool IsDemonstratorSlot(TrainCarLivery slot) =>
+        AllSlots().Any(s => s.livery.id == slot.id && s.kind == SlotKind.Demonstrator);
+
+    // Adds a demonstrator slot of this mod's own, pre-selecting its loco's tender the same way.
+    internal static void AddAdditionalSlot(string locoId)
+    {
+        Main.Settings.AddAdditionalSlot(locoId);
+
+        var loco = GetLivery(locoId);
+        var tender = loco != null ? AutoTender(loco) : null;
+        if (tender != null && !AllSpawnedIds().Contains(tender.id))
+            Main.Settings.SetTenderId(locoId, tender.id);
+    }
+
+    // CCL as the primary source of truth, anything without a configured trainset falls back to the game's
+    // <livery>A + <livery>B convention.
+    internal static TrainCarLivery? AutoTender(TrainCarLivery loco)
+    {
+        if (!CarTypes.IsLocomotive(loco)) return null;
+
+        foreach (var member in CustomCarLoaderHelper.TrainsetFor(loco))
+            if (member != null && CarTypes.IsTender(member)) return member;
+
+        return ConventionalTender(loco);
+    }
+
+    private static TrainCarLivery? ConventionalTender(TrainCarLivery loco)
+    {
+        if (!loco.id.EndsWith("A", StringComparison.Ordinal)) return null;
+        var tender = GetLivery(loco.id.Substring(0, loco.id.Length - 1) + "B");
+        return tender != null && CarTypes.IsTender(tender) ? tender : null;
     }
 
     private static bool IsPrimaryReplaced(string slotId) =>
@@ -288,6 +345,8 @@ internal static class SlotChoices
         SetSpawn(slot, targetId);
         if (livery != null)
             SetSpawn(livery, vacatedId);
+
+        InferTendersForSwap(slot, livery);
 
         RestorationPartsCustomizer.RevertSlotCargo(slot.id);
         if (livery != null)

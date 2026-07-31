@@ -395,7 +395,7 @@ internal static class SettingsGUI
             var chosen = candidate;
             yield return new(Loc(chosen.localizationKey, chosen.id), chosen.id, () =>
             {
-                Main.Settings.AddAdditionalSlot(chosen.id);
+                SlotChoices.AddAdditionalSlot(chosen.id);
                 _openAdditionalPicker = false;
             });
         }
