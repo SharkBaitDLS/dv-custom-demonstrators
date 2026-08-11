@@ -6,7 +6,7 @@ Put a picture in here to give a locomotive one of your own, or to replace the on
 
 Name the file after the livery ID it belongs to, with a .png extension: <livery-id>.png
 
-Locomotive livery IDs can be found in the mod's settings menu in brackets after you select the slot for it.
+Locomotive livery IDs can be found in the mod's settings menu in brackets after you select the slot for it. See the LiveryID.png in this folder for reference.
 
 The mod's settings menu lists each locomotive under the livery id it uses, as a reference point.
 
