@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
+      - '*'
 
 permissions:
   contents: write
@@ -21,10 +21,25 @@ jobs:
         with:
           lfs: true
 
+      - name: Classify tag
+        id: tag
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = '${{ github.ref_name }}'
+          if ($tag -match '^[0-9]+\.[0-9]+\.[0-9]+$') {
+            Write-Host "Tag '$tag' is a full release."
+            "candidate=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            Write-Host "Tag '$tag' is a release candidate."
+            "candidate=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
       - name: Verify tag matches info.json and repository.json versions
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
+          $candidate = '${{ steps.tag.outputs.candidate }}' -eq 'true'
           $tag = '${{ github.ref_name }}' -replace '^v', ''
           $info = Get-Content -Raw info.json | ConvertFrom-Json
           $errors = @()
@@ -48,16 +63,33 @@ jobs:
           }
 
           if ($errors.Count -gt 0) {
-            $errors | ForEach-Object { Write-Host "::error::$_" }
-            Write-Error "Version mismatch for tag '$tag'. Bump every version field in info.json and repository.json (including the version inside DownloadUrl) before tagging."
-            exit 1
+            if ($candidate) {
+              $errors | ForEach-Object { Write-Host "::warning::$_" }
+              Write-Host "::warning::Version fields do not match release candidate tag '$tag'. Continuing because this is a draft release."
+            } else {
+              $errors | ForEach-Object { Write-Host "::error::$_" }
+              Write-Error "Version mismatch for tag '$tag'. Bump every version field in info.json and repository.json (including the version inside DownloadUrl) before tagging."
+              exit 1
+            }
+          } else {
+            Write-Host "Releasing version $tag"
           }
-          Write-Host "Releasing version $tag"
 
       - name: Build and package
         run: dotnet build CustomDemonstrators.sln -c Release
 
       - name: Create GitHub release
+        shell: powershell
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create ${{ github.ref_name }} dist/CustomDemonstrators.zip --title ${{ github.ref_name }} --generate-notes
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ghArgs = @(
+            'release', 'create', '${{ github.ref_name }}', 'dist/CustomDemonstrators.zip',
+            '--title', '${{ github.ref_name }}', '--generate-notes'
+          )
+          if ('${{ steps.tag.outputs.candidate }}' -eq 'true') {
+            $ghArgs += '--draft'
+            $ghArgs += '--prerelease'
+          }
+          gh @ghArgs
