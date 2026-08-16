@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using DV.LocoRestoration;
+using CustomDemonstrators.Api;
 using CustomDemonstrators.Slots;
 using CustomDemonstrators.World;
 
@@ -95,6 +96,7 @@ internal static class SaveGuard
         foreach (var controller in LocoRestorationController.allLocoRestorationControllers.ToList())
             DemonstratorRespawner.ReinitializeDemonstrator(controller);
         CommsRadioRefresher.Refresh();
+        ForceApplyEvents.RaiseApplied(ForceApplyKind.Demonstrators);
     }
 
     internal static void ForceApplyGarages()
@@ -105,6 +107,7 @@ internal static class SaveGuard
         GarageLiveries.Apply();
         WorkTrainGarages.ReinitializeAll();
         CommsRadioRefresher.Refresh();
+        ForceApplyEvents.RaiseApplied(ForceApplyKind.Garages);
     }
 
     internal static string DemonstratorFingerprint()
