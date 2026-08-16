@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using DV.LocoRestoration;
 using CustomDemonstrators.Api;
 using CustomDemonstrators.Slots;
@@ -59,6 +58,7 @@ internal static class SaveGuard
 
     // The fingerprint the save was last saved with or null if the mod never touched this save
     internal static string? StoredDemonstratorFingerprint => ReadStored(DemonstratorFingerprintKey);
+    internal static string? StoredGarageFingerprint => ReadStored(GarageFingerprintKey);
 
     private static string? ReadStored(string key)
     {
@@ -110,6 +110,50 @@ internal static class SaveGuard
         ForceApplyEvents.RaiseApplied(ForceApplyKind.Garages);
     }
 
+    // The inverse of the force respawn buttons, applies the current save's state to the UMM settings.
+    internal static void AdoptDemonstrators()
+    {
+        SaveAdoption.ApplyDemonstrators();
+        LogAdoption("demonstrator", StoredDemonstratorFingerprint, DemonstratorFingerprint());
+
+        _forcedDemo = true;
+        _allowDemo = null;
+        AllowDemonstratorChanges();
+        GarageLiveries.Apply();
+        CommsRadioRefresher.Refresh();
+    }
+
+    internal static void AdoptGarages()
+    {
+        SaveAdoption.ApplyGarages();
+        LogAdoption("garage", StoredGarageFingerprint, GarageFingerprint());
+
+        _forcedGarage = true;
+        _allowGarage = null;
+        AllowGarageChanges();
+        GarageLiveries.Apply();
+        CommsRadioRefresher.Refresh();
+    }
+
+    private static void LogAdoption(string what, string? stored, string adopted)
+    {
+        if (string.IsNullOrEmpty(stored))
+        {
+            Main.Logger.Log($"Adopted this save's {what} settings: {adopted}");
+            return;
+        }
+
+        if (stored == adopted)
+        {
+            Main.Logger.Log($"Adopted this save's {what} settings: {adopted}");
+            return;
+        }
+
+        Main.Logger.Warning($"Adopted this save's {what} settings as '{adopted}', which is not what it was "
+            + $"saved with ('{stored}'). Anything the save didn't record has been taken as the game's own "
+            + "default, which is what it would have loaded with.");
+    }
+
     internal static string DemonstratorFingerprint()
     {
         var entries = new List<(string PrimaryId, string SpawnId, string? TenderId)>();
@@ -136,17 +180,14 @@ internal static class SaveGuard
 
     internal static string GarageFingerprint()
     {
-        var sb = new StringBuilder();
+        var entries = new List<(string GarageId, IEnumerable<string> SpawnIds, IEnumerable<string> Extras)>();
         foreach (var (garage, isDemonstrator, liveries) in VanillaGarages.Groups)
         {
             if (isDemonstrator) continue;
-            sb.Append(garage.id).Append('=');
-            foreach (var livery in liveries)
-                sb.Append(SlotChoices.CurrentSpawnId(livery)).Append(',');
-            foreach (var extra in Main.Settings.GetExtraCars(garage.id))
-                sb.Append('+').Append(extra);
-            sb.Append(';');
+            entries.Add((garage.id,
+                liveries.Select(SlotChoices.CurrentSpawnId).ToList(),
+                Main.Settings.GetExtraCars(garage.id)));
         }
-        return sb.ToString();
+        return SaveConfig.SerializeGarages(entries);
     }
 }

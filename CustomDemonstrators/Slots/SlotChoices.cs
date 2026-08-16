@@ -303,7 +303,7 @@ internal static class SlotChoices
     }
 
     // After the flatcar changes, drop any explicit parts-cargo overrides the new flatcar can't carry.
-    private static void PruneInvalidCargoOverrides()
+    internal static void PruneInvalidCargoOverrides()
     {
         foreach (var (_, isDemonstrator, liveries) in VanillaGarages.Groups)
         {
@@ -357,11 +357,13 @@ internal static class SlotChoices
         PruneInvalidCargoOverrides();
     }
 
-    private static void SetSpawn(TrainCarLivery slot, string spawnId)
+    private static void SetSpawn(TrainCarLivery slot, string spawnId) => SetSpawn(slot.id, spawnId);
+
+    internal static void SetSpawn(string slotId, string spawnId)
     {
-        if (spawnId == slot.id)
-            Main.Settings.LiveryReplacements.Remove(slot.id);
+        if (spawnId == slotId)
+            Main.Settings.LiveryReplacements.Remove(slotId);
         else
-            Main.Settings.LiveryReplacements[slot.id] = spawnId;
+            Main.Settings.LiveryReplacements[slotId] = spawnId;
     }
 }

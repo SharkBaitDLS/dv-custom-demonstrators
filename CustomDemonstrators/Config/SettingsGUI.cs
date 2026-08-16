@@ -47,7 +47,7 @@ internal static class SettingsGUI
         """
         Choose a replacement for each Demonstrator and Garage spawn or add additional Demonstrators. The chosen stock spawns in place of the default when a new save is created.
 
-        If you load an existing save and your settings do not match what already exists in it, this mod will do nothing until you press the force respawn buttons below.
+        If you load an existing save and your settings do not match what already exists in it, this mod will do nothing until you either press the force respawn buttons below or adopt the save's own settings.
         """;
 
     internal static void OnGUI(UnityModManager.ModEntry entry)
@@ -66,7 +66,7 @@ internal static class SettingsGUI
         GUILayout.Label(IntroText, GUILayout.ExpandWidth(true));
         GUILayout.Space(6);
 
-        DrawSaveGuardNotice();
+        DrawSaveGuardNotice(entry);
 
 #if DEBUG
         DebugCheats.Draw();
@@ -81,13 +81,17 @@ internal static class SettingsGUI
         DrawSection(Loc("comms/mode_work_train", "Work Trains"), groups.Where(g => !g.isDemonstrator));
     }
 
-    private static void DrawSaveGuardNotice()
+    private static void DrawSaveGuardNotice(UnityModManager.ModEntry entry)
     {
         if (SaveGuard.IsDemonstratorOutOfSync)
         {
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label("Demonstrator changes are not in effect for this save because its demonstrator "
                 + "settings differ from the ones it was created with.");
+            if (GUILayout.Button("Adopt this save's demonstrators", GUILayout.Width(360)))
+                Adopt(entry, SaveGuard.AdoptDemonstrators);
+            GUILayout.Label("Your demonstrator settings will be changed to match what this save was configured with.");
+            GUILayout.Space(4);
             if (GUILayout.Button("Force respawn demonstrators", GUILayout.Width(360)))
                 SaveGuard.ForceApplyDemonstrators();
             GUILayout.Label("Each demonstrator respawns as a fresh wreck of your chosen replacement at a new random "
@@ -103,6 +107,10 @@ internal static class SettingsGUI
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label("Garage changes are not in effect for this save because its garage settings differ "
                 + "from the ones it was created with.");
+            if (GUILayout.Button("Adopt this save's garages", GUILayout.Width(360)))
+                Adopt(entry, SaveGuard.AdoptGarages);
+            GUILayout.Label("Your garage settings will be changed to match what this save was configured with.");
+            GUILayout.Space(4);
             if (GUILayout.Button("Force respawn garages", GUILayout.Width(360)))
                 SaveGuard.ForceApplyGarages();
             GUILayout.Label("Each opened garage respawns your chosen replacement. Cars you've already removed from an "
@@ -110,6 +118,15 @@ internal static class SettingsGUI
             GUILayout.EndVertical();
             GUILayout.Space(6);
         }
+    }
+
+    private static void Adopt(UnityModManager.ModEntry entry, System.Action adopt)
+    {
+        adopt();
+        _priceText.Clear();
+        _openPickerFor = _openCargoPickerFor = _openTenderPickerFor = _openExtraPickerFor = null;
+        _openAdditionalPicker = false;
+        Main.Settings.Save(entry);
     }
 
     private static string Loc(string? key, string fallback) =>
