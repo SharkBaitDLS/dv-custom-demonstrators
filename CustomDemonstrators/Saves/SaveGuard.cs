@@ -72,7 +72,7 @@ internal static class SaveGuard
     private static bool OutOfSync(string key, Func<string> fingerprint)
     {
         var data = SaveState.Data();
-        if (data == null || SaveState.IsNewSession) return false;
+        if (data == null) return false;
         return data.GetString(key) != fingerprint();
     }
 
