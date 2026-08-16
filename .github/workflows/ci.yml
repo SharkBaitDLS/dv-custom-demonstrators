@@ -17,6 +17,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Verify manifests
+        shell: powershell
+        run: ./validate-manifests.ps1
+
       - name: Restore
         run: dotnet restore CustomDemonstrators.sln
 
