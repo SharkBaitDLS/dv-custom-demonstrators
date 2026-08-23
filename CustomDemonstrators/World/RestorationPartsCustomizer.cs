@@ -60,6 +60,38 @@ internal static class RestorationPartsCustomizer
     private static readonly FieldInfo? _prefabCacheField =
         AccessTools.Field(typeof(CargoType_v2), "_trainCargoToCargoPrefabs");
 
+    // Repair any cargoes that duplicate their loadable car types
+    private static void Sanitize(CargoType_v2? cargo)
+    {
+        var loadables = cargo?.loadableCarTypes;
+        if (cargo == null || loadables == null || loadables.Length == 0) return;
+
+        var seen = new HashSet<TrainCarType_v2>();
+        var kept = new List<CargoType_v2.LoadableInfo>(loadables.Length);
+        var duplicates = new List<string>();
+        int blanks = 0;
+
+        foreach (var li in loadables)
+        {
+            if (li == null || li.carType == null) { blanks++; continue; }
+            if (!seen.Add(li.carType)) { duplicates.Add(li.carType.id); continue; }
+            kept.Add(li);
+        }
+
+        if (duplicates.Count == 0 && blanks == 0) return;
+
+        cargo.loadableCarTypes = [.. kept];
+        _prefabCacheField?.SetValue(cargo, null); // drop any dictionary built from the old array
+
+        if (duplicates.Count > 0)
+            Main.Logger.Warning($"Cargo '{cargo.id}' listed {string.Join(", ", duplicates.Distinct())} more "
+                + "than once among its loadable car types; dropped the duplicate(s). This is a data error in "
+                + "whichever mod contributed that car type, and would otherwise crash loading that cargo.");
+        if (blanks > 0)
+            Main.Logger.Warning($"Cargo '{cargo.id}' had {blanks} loadable car type entries with no car type; "
+                + "dropped them. Same failure mode as a duplicate entry.");
+    }
+
     // Settings sentinel meaning "force the generic crate", i.e. skip auto-detect and use the DM3 reskin
     // even if a name-matching cargo exists. Distinct from null (auto-detect) and a real cargo id.
     internal const string GenericCrateSentinel = "__cd_generic_crate__";
@@ -68,12 +100,21 @@ internal static class RestorationPartsCustomizer
 
     internal static void ApplyCargo(LocoRestorationController controller, string slotId, TrainCarLivery? replacementLoco)
     {
-        ChooseCargo(controller, slotId, replacementLoco);
+        Sanitize(controller.locoPartCargo);
+
+        var source = ChooseCargo(controller, slotId, replacementLoco);
+
+        Sanitize(controller.locoPartCargo);
+
+        Main.Logger.Log($"Restoration '{slotId}' is using parts cargo "
+            + $"'{controller.locoPartCargo?.id ?? "<none>"}' ({source}).");
+
         // Whatever the choice turned out to be, the warehouse has to be willing to load it.
         PartsWarehouse.EnsureSupported(controller);
     }
 
-    private static void ChooseCargo(LocoRestorationController controller, string slotId, TrainCarLivery? replacementLoco)
+    // Returns how the cargo was chosen, for the log line in ApplyCargo.
+    private static string ChooseCargo(LocoRestorationController controller, string slotId, TrainCarLivery? replacementLoco)
     {
         // Snapshots exist to put a shared game cargo back the way we found it. A slot added by this mod
         // only ever rewrites a copy it owns, and gets a fresh one each load, so it has nothing to restore.
@@ -89,7 +130,7 @@ internal static class RestorationPartsCustomizer
             {
                 controller.locoPartCargo = picked; // use the chosen cargo (and its model) as-is
                 SyncRegisterNames(controller);
-                return;
+                return "explicit override";
             }
 
             // This should generally never happen since the settings GUI enforces correctness of the
@@ -104,9 +145,9 @@ internal static class RestorationPartsCustomizer
         if (replacementLoco == null)
         {
             RevertCargo(controller, slotId);
-            return;
+            return "vanilla (no replacement loco)";
         }
-        if (controller.locoPartCargo == null) return;
+        if (controller.locoPartCargo == null) return "none (slot has no parts cargo)";
 
         if (choice != GenericCrateSentinel)
         {
@@ -115,7 +156,7 @@ internal static class RestorationPartsCustomizer
             {
                 controller.locoPartCargo = matched;
                 SyncRegisterNames(controller);
-                return;
+                return "auto-detected";
             }
         }
 
@@ -126,6 +167,7 @@ internal static class RestorationPartsCustomizer
 
         Customize(controller.locoPartCargo, replacementLoco);
         SyncRegisterNames(controller);
+        return choice == GenericCrateSentinel ? "generic crate (forced)" : "generic crate";
     }
 
     private static readonly SavedMap _bakedCargo =

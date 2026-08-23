@@ -2,6 +2,11 @@
 	"Releases": [
 		{
 			"Id": "CustomDemonstrators",
+			"Version": "0.3.8",
+			"DownloadUrl": "https://github.com/SharkBaitDLS/dv-custom-demonstrators/releases/download/0.3.8/CustomDemonstrators.zip"
+		},
+		{
+			"Id": "CustomDemonstrators",
 			"Version": "0.3.7",
 			"DownloadUrl": "https://github.com/SharkBaitDLS/dv-custom-demonstrators/releases/download/0.3.7/CustomDemonstrators.zip"
 		},
