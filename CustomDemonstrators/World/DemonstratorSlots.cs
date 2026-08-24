@@ -101,6 +101,8 @@ internal static class DemonstratorSlots
         var wanted = new HashSet<string>(DesiredLocoIds());
         bool changed = false;
 
+        DemonstratorCars.ReconcileSpawnPointUsage();
+
         // Removals first to prevent double claims
         foreach (var locoId in _slots.Keys.Where(id => !wanted.Contains(id)).ToList())
         {

@@ -15,7 +15,7 @@ internal static class GarageUnlocks
     private static readonly FieldInfo? UnsavedChanges =
         AccessTools.Field(typeof(LicenseManager), "unsavedChanges");
 
-    internal static void Revoke(GarageType_v2? garage)
+    internal static void Revoke(GarageType_v2? garage, string? reason = null)
     {
         if (garage == null) return;
 
@@ -26,7 +26,17 @@ internal static class GarageUnlocks
         if (!unlocked.Remove(garage)) return;
 
         UnsavedChanges?.SetValue(manager, true);
-        Main.Logger.Log($"Revoked the garage unlock for {garage.id}, its restoration has to be completed again.");
+        Main.Logger.Log($"Revoked the garage unlock for {garage.id}, "
+            + (reason ?? "its restoration has to be completed again."));
+    }
+
+    private static readonly FieldInfo? SpawnAllowed =
+        AccessTools.Field(typeof(GarageCarSpawner), "spawnAllowed");
+
+    internal static void StopSpawning(GarageCarSpawner? spawner)
+    {
+        if (spawner == null) return;
+        SpawnAllowed?.SetValue(spawner, false);
     }
 
     internal static LicenseManager? Manager() =>

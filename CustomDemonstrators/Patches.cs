@@ -56,6 +56,14 @@ internal static class LocoRestorationController_Awake_Patch
     }
 }
 
+// A slot is built before the save is replayed into it, so this is where the state it came back as lands.
+[HarmonyPatch(typeof(LocoRestorationController), nameof(LocoRestorationController.LoadData))]
+internal static class LocoRestorationController_LoadData_Patch
+{
+    private static void Postfix(LocoRestorationController __instance) =>
+        DemonstratorRespawner.SettleLoadedSlot(__instance);
+}
+
 // Build the slots this mod adds on top of the game's six. Both career entry points are patched because a
 // new career and a loaded save reach the same window by different routes.
 

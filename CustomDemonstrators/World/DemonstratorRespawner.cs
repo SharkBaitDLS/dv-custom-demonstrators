@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Reflection;
-using DV;
 using DV.LocoRestoration;
 using DV.Utils;
 using HarmonyLib;
@@ -133,6 +132,49 @@ internal static class DemonstratorRespawner
         Main.Logger.Warning($"{id} holds every license it needs but stayed at S0, unblocking it directly so its restoration isn't stuck.");
         AccessTools.Method(typeof(LocoRestorationController), "OnBlockersRemoved", [typeof(bool)])
             ?.Invoke(controller, [true]);
+    }
+
+    internal static void SettleLoadedSlot(LocoRestorationController controller)
+    {
+        if (!SlotTypes.IsSlotGarage(controller.garageSpawner?.garageType)) return;
+
+        RevokeUnearnedOwnership(controller);
+        RescueRerailedState(controller);
+    }
+
+    private static void RevokeUnearnedOwnership(LocoRestorationController controller)
+    {
+        if (controller.State >= LocoRestorationController.RestorationState.S9_LocoServiced) return;
+
+        GarageUnlocks.Revoke(controller.garageSpawner?.garageType,
+            $"its restoration is only at {controller.State} and hasn't earned it.");
+        GarageUnlocks.StopSpawning(controller.garageSpawner);
+    }
+
+    private static void RescueRerailedState(LocoRestorationController controller)
+    {
+        if (controller.State != LocoRestorationController.RestorationState.S2_LocoUnblocked) return;
+
+        var t = Traverse.Create(controller);
+        var loco = t.Field("loco").GetValue<TrainCar>();
+        if (loco == null || loco.derailed) return;
+
+        var secondCar = t.Field("secondCar").GetValue<TrainCar>();
+        if (secondCar != null && secondCar.derailed) return;
+
+        var loadingDone = LoadingDoneField?.GetValue(controller);
+        SuppressPopups(controller);
+        try
+        {
+            AccessTools.Method(typeof(LocoRestorationController), "OnRerailed")?.Invoke(controller, null);
+        }
+        finally
+        {
+            LoadingDoneField?.SetValue(controller, loadingDone);
+        }
+
+        Main.Logger.Log($"{controller.locoLivery?.id} was already back on its wheels with nothing left to "
+            + $"fire its rerail check; its restoration is now at {controller.State}.");
     }
 
     private static void HideOnMap(TrainCar? car)
