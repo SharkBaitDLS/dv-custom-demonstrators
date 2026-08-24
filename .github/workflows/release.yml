@@ -48,7 +48,15 @@ jobs:
           }
           ./validate-manifests.ps1 @params
 
-      - name: Build and package
+      - name: Build and package debug version
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet build CustomDemonstrators.sln -c Debug
+          if ($LASTEXITCODE -ne 0) { throw 'Debug build failed.' }
+          ./package.ps1 -ArchiveSuffix 'Debug'
+
+      - name: Build and package release version
         run: dotnet build CustomDemonstrators.sln -c Release
 
       - name: Create GitHub release
@@ -58,7 +66,8 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $ghArgs = @(
-            'release', 'create', '${{ github.ref_name }}', 'dist/CustomDemonstrators.zip',
+            'release', 'create', '${{ github.ref_name }}',
+            'dist/CustomDemonstrators.zip', 'dist/CustomDemonstratorsDebug.zip',
             '--title', '${{ github.ref_name }}', '--generate-notes'
           )
           if ('${{ steps.tag.outputs.candidate }}' -eq 'true') {

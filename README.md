@@ -96,6 +96,10 @@ Leave the package contents uncompressed in the output directory.
 Specify a different output directory.
 For instance, this can be used in conjunction with `-NoArchive` to copy the mod files into your Derail Valley installation directory.
 
+#### -ArchiveSuffix
+
+Append a suffix to the archive's file name, e.g. `-ArchiveSuffix Debug` writes `dist/CustomDemonstratorsDebug.zip`.
+
 ## License
 
 Source code is distributed under the MIT license.

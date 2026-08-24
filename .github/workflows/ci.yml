@@ -27,5 +27,8 @@ jobs:
       - name: Lint
         run: dotnet format CustomDemonstrators.sln --verify-no-changes --no-restore
 
-      - name: Build
+      - name: Debug Build
+        run: dotnet build CustomDemonstrators.sln -c Debug --no-restore
+
+      - name: Relesae Build
         run: dotnet build CustomDemonstrators.sln -c Release --no-restore

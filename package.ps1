@@ -1,6 +1,7 @@
 param (
 	[switch]$NoArchive,
-	[string]$OutputDirectory = $PSScriptRoot
+	[string]$OutputDirectory = $PSScriptRoot,
+	[string]$ArchiveSuffix
 )
 
 Set-Location "$PSScriptRoot"
@@ -10,6 +11,8 @@ $FilesToInclude = "info.json","build/*","LICENSE","DemonstratorPosters"
 
 $modInfo = Get-Content -Raw -Path "info.json" | ConvertFrom-Json
 $modId = $modInfo.Id
+
+$archiveName = if ($ArchiveSuffix) { "$modId$ArchiveSuffix" } else { $modId }
 
 $DistDir = "$OutputDirectory/dist"
 if ($NoArchive) {
@@ -26,7 +29,7 @@ Copy-Item -Force -Recurse -Path $FilesToInclude -Destination "$ZipOutDir"
 
 if (!$NoArchive)
 {
-	$FILE_NAME = "$DistDir/${modId}.zip"
+	$FILE_NAME = "$DistDir/${archiveName}.zip"
 	# Remove any existing archive so the zip only contains the current file set.
 	if (Test-Path "$FILE_NAME") { Remove-Item -Force "$FILE_NAME" }
 
@@ -35,7 +38,7 @@ if (!$NoArchive)
 	try { Add-Type -AssemblyName System.IO.Compression.FileSystem } catch { }
 
 	$SourceRoot = (Resolve-Path "$ZipOutDir").Path.TrimEnd('\', '/')
-	$ArchivePath = Join-Path (Resolve-Path "$DistDir").Path "${modId}.zip"
+	$ArchivePath = Join-Path (Resolve-Path "$DistDir").Path "${archiveName}.zip"
 
 	$Archive = [System.IO.Compression.ZipFile]::Open($ArchivePath, [System.IO.Compression.ZipArchiveMode]::Create)
 	try {
