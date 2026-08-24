@@ -212,16 +212,18 @@ internal static class SlotScene
         controller.destinationTrackId = destinationTrackId;
 
         // A wreck can only leave its blocked state if a LocoZoneBlocker exists on the car or can be built
-        // from a prefab. Custom locos often ship without one, so fall back to the template's.
-        if (controller.locoBlockerPrefab == null)
-            controller.locoBlockerPrefab = Blocker(template.locoLivery);
-        if (controller.secondCarBlockerPrefab == null)
-            controller.secondCarBlockerPrefab = Blocker(template.secondCarLivery) ?? controller.locoBlockerPrefab;
+        // from a prefab. Fall back to the template if we can't find one.
+        controller.locoBlockerPrefab = ZoneBlockers.First(
+            ZoneBlockers.PrefabFor(loco),
+            ZoneBlockers.PrefabFor(template.locoLivery),
+            controller.locoBlockerPrefab);
+        controller.secondCarBlockerPrefab = ZoneBlockers.First(
+            ZoneBlockers.PrefabFor(tender),
+            ZoneBlockers.PrefabFor(template.secondCarLivery),
+            controller.secondCarBlockerPrefab,
+            controller.locoBlockerPrefab);
 
         go.SetActive(true);
         return controller;
     }
-
-    private static GameObject? Blocker(TrainCarLivery? livery) =>
-        livery?.prefab?.GetComponentInChildren<LocoZoneBlocker>(includeInactive: true)?.gameObject;
 }

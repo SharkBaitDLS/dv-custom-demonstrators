@@ -2,7 +2,6 @@ using System.Linq;
 using DV;
 using DV.LocoRestoration;
 using DV.ThingTypes;
-using UnityEngine;
 using CustomDemonstrators.Saves;
 using CustomDemonstrators.Slots;
 
@@ -12,9 +11,6 @@ internal static class DemonstratorSetup
 {
     internal static TrainCarLivery? GetLivery(string id) =>
         Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == id);
-
-    private static GameObject? OriginalBlocker(TrainCarLivery? livery) =>
-        livery?.prefab?.GetComponentInChildren<LocoZoneBlocker>(includeInactive: true)?.gameObject;
 
     internal static bool Resolve(
         TrainCarLivery? loco, TrainCarLivery? originalTender, string slotId,
@@ -69,12 +65,14 @@ internal static class DemonstratorSetup
             }
         }
 
-        if (replacementLoco != null && controller.locoBlockerPrefab == null)
-            controller.locoBlockerPrefab = OriginalBlocker(loco);
+        controller.locoBlockerPrefab = ZoneBlockers.First(
+            ZoneBlockers.PrefabFor(controller.locoLivery),
+            ZoneBlockers.PrefabFor(loco),
+            controller.locoBlockerPrefab);
 
         // The controller only subscribes to Unblocked when a blocker exists on the spawned car or can be
         // instantiated from the prefab. With neither, a wreck reset to S0 can never advance on its own.
-        if (controller.locoBlockerPrefab == null && OriginalBlocker(controller.locoLivery) == null)
+        if (controller.locoBlockerPrefab == null)
             Main.Logger.Warning(
                 $"{controller.locoLivery?.id} has no loco zone blocker available, its restoration can't unblock itself.");
 
@@ -94,9 +92,11 @@ internal static class DemonstratorSetup
             if (tenderId.requiredLicense == null && effectiveLoco?.requiredLicense != null)
                 tenderId.requiredLicense = effectiveLoco.requiredLicense;
 
-            // Ensure a blocker prefab exists at all (the tender's own, else the loco's).
-            if (controller.secondCarBlockerPrefab == null)
-                controller.secondCarBlockerPrefab = OriginalBlocker(tender) ?? OriginalBlocker(loco) ?? controller.locoBlockerPrefab;
+            controller.secondCarBlockerPrefab = ZoneBlockers.First(
+                ZoneBlockers.PrefabFor(tenderId),
+                ZoneBlockers.PrefabFor(tender),
+                controller.secondCarBlockerPrefab,
+                controller.locoBlockerPrefab);
         }
 
         // Price overrides. < 0 / unset = default.
