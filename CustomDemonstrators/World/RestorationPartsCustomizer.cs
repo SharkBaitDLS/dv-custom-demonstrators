@@ -173,6 +173,8 @@ internal static class RestorationPartsCustomizer
     private static readonly SavedMap _bakedCargo =
         new("CustomDemonstrators_CargoSlots", "CustomDemonstrators_CargoChoices");
 
+    internal static string? BakedCargoChoice(string slotId) => _bakedCargo.Get(slotId);
+
     private static string? CargoChoice(string slotId)
     {
         if (!SaveGuard.AllowDemonstratorChanges()) return _bakedCargo.Get(slotId);

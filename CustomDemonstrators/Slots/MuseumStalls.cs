@@ -72,6 +72,13 @@ internal static class MuseumStalls
 
     internal static (Vector3 Offset, float Yaw)? PlacementFor(string locoId) => Decode(_saved.Get(locoId));
 
+    // Whether loading with these settings would throw away a hand placement the save is holding. That is the
+    // one direction that loses information: settings which know nothing of where a slot stands would clear
+    // the save's record and drop the slot into a stall, or the template's. A placement that merely differs is
+    // a move the player made in the menu, and still applies on the next load like any other setting.
+    internal static bool WouldErasePlacement(string locoId, Vector3? home) =>
+        home == null && PlacementFor(locoId) != null;
+
     // Writes the player's current placement into the save, so the slot can be rebuilt. Clearing one gives the
     // slot back to the stalls, but must leave a stall entry alone — that isn't a placement to begin with.
     internal static void RecordPlacement(string locoId, (Vector3 Offset, float Yaw)? placement)

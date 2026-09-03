@@ -88,16 +88,18 @@ internal static class SettingsGUI
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label("Demonstrator changes are not in effect for this save because its demonstrator "
                 + "settings differ from the ones it was created with.");
-            if (GUILayout.Button("Adopt this save's demonstrators", GUILayout.Width(360)))
+            if (GUILayout.Button("Adopt this save's settings", GUILayout.Width(360)))
                 Adopt(entry, SaveGuard.AdoptDemonstrators);
-            GUILayout.Label("Your demonstrator settings will be changed to match what this save was configured with.");
+            GUILayout.Label("Your demonstrator settings will be changed to match what this save was configured "
+                + "with. Nothing in the world moves or respawns.");
             GUILayout.Space(4);
-            if (GUILayout.Button("Force respawn demonstrators", GUILayout.Width(360)))
+            if (GUILayout.Button("Apply settings to this save", GUILayout.Width(360)))
                 SaveGuard.ForceApplyDemonstrators();
-            GUILayout.Label("Each demonstrator respawns as a fresh wreck of your chosen replacement at a new random "
-                + "location. Any partial progress towards restoration will be lost. Demonstrators "
-                + "you've already finished restoring are kept as owned by your player but will no longer be "
-                + "associated with a demonstrator slot in the museum or summonable by the comms radio.");
+            GUILayout.Label("Demonstrator slots whose locomotive or tender changed will respawn as a fresh wreck at "
+                + "a new location, and any demonstrators in those slots are removed. Removed demonstrators that are "
+                + "unrestored will be deleted, while any restored locmotives stays in the world but will no longer be "
+                + "summonable from the comms radio or respawn when cleared. If a demonstrator only moves between slots "
+                + "it will remain unchanged in the world even if unrestored.");
             GUILayout.EndVertical();
             GUILayout.Space(6);
         }

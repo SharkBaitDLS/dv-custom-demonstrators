@@ -22,7 +22,7 @@ internal static class SaveGuard
     internal static bool AllowDemonstratorChanges()
     {
         if (_allowDemo.HasValue) return _allowDemo.Value;
-        bool result = Decide(_forcedDemo, DemonstratorFingerprintKey, DemonstratorFingerprint, out bool undecided);
+        bool result = Decide(_forcedDemo, DemonstratorFingerprintKey, DemonstratorFingerprint, PlacementsPreserved, out bool undecided);
         if (!undecided) _allowDemo = result; // leave uncached while the save isn't readable yet
         return result;
     }
@@ -31,12 +31,13 @@ internal static class SaveGuard
     internal static bool AllowGarageChanges()
     {
         if (_allowGarage.HasValue) return _allowGarage.Value;
-        bool result = Decide(_forcedGarage, GarageFingerprintKey, GarageFingerprint, out bool undecided);
+        bool result = Decide(_forcedGarage, GarageFingerprintKey, GarageFingerprint, null, out bool undecided);
         if (!undecided) _allowGarage = result;
         return result;
     }
 
-    private static bool Decide(bool forced, string key, Func<string> fingerprint, out bool undecided)
+    private static bool Decide(
+        bool forced, string key, Func<string> fingerprint, Func<bool>? alsoInSync, out bool undecided)
     {
         undecided = false;
         if (forced) return WriteFingerprint(key, fingerprint);
@@ -45,7 +46,9 @@ internal static class SaveGuard
         if (data == null) { undecided = true; return true; }
         if (SaveState.IsNewSession) return WriteFingerprint(key, fingerprint);
 
-        return data.GetString(key) == fingerprint() && WriteFingerprint(key, fingerprint);
+        return data.GetString(key) == fingerprint()
+            && (alsoInSync?.Invoke() ?? true)
+            && WriteFingerprint(key, fingerprint);
     }
 
     private static bool WriteFingerprint(string key, Func<string> fingerprint)
@@ -55,6 +58,20 @@ internal static class SaveGuard
     }
 
     internal static bool IsGarageBlocking => SaveState.Data() != null && !AllowGarageChanges();
+
+    // Where each slot stands is deliberately held out of the fingerprint, since the floats would read as
+    // drift, so it is checked against the save's own record here instead. Only the destructive direction
+    // counts as out of sync: settings carrying no placement for a slot the save has hand-placed would erase
+    // it on load. Moving a slot in the menu is left to apply on the next load as it always has.
+    private static bool PlacementsPreserved()
+    {
+        foreach (var slot in Main.Settings.AdditionalSlots)
+        {
+            if (string.IsNullOrEmpty(slot.LocoId)) continue;
+            if (MuseumStalls.WouldErasePlacement(slot.LocoId, slot.Home)) return false;
+        }
+        return true;
+    }
 
     // The fingerprint the save was last saved with or null if the mod never touched this save
     internal static string? StoredDemonstratorFingerprint => ReadStored(DemonstratorFingerprintKey);
@@ -66,14 +83,14 @@ internal static class SaveGuard
         return string.IsNullOrEmpty(s) ? null : s;
     }
 
-    internal static bool IsDemonstratorOutOfSync => OutOfSync(DemonstratorFingerprintKey, DemonstratorFingerprint);
+    internal static bool IsDemonstratorOutOfSync => OutOfSync(DemonstratorFingerprintKey, DemonstratorFingerprint, PlacementsPreserved);
     internal static bool IsGarageOutOfSync => OutOfSync(GarageFingerprintKey, GarageFingerprint);
 
-    private static bool OutOfSync(string key, Func<string> fingerprint)
+    private static bool OutOfSync(string key, Func<string> fingerprint, Func<bool>? alsoInSync = null)
     {
         var data = SaveState.Data();
         if (data == null) return false;
-        return data.GetString(key) != fingerprint();
+        return data.GetString(key) != fingerprint() || !(alsoInSync?.Invoke() ?? true);
     }
 
     internal static void Invalidate()

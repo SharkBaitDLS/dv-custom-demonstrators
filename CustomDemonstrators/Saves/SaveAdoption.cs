@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DV.ThingTypes;
+using UnityEngine;
 using CustomDemonstrators.Slots;
+using CustomDemonstrators.World;
 
 namespace CustomDemonstrators.Saves;
 
@@ -27,6 +29,7 @@ internal static class SaveAdoption
             var (SpawnId, TenderId) = Lookup(baked, primary.id) ?? (primary.id, null);
             SlotChoices.SetSpawn(primary.id, SpawnId);
             AdoptTender(primary.id, VanillaGarages.OriginalTender(garage), TenderId);
+            AdoptCargoChoice(primary.id);
 
             claimed.Add(SpawnId);
             if (TenderId != null) claimed.Add(TenderId);
@@ -105,15 +108,32 @@ internal static class SaveAdoption
 
         foreach (var kv in wanted)
         {
-            // Adding a slot that's already configured is a no-op, which is what keeps a hand-placed home
-            // from being thrown away when its slot is adopted back unchanged.
+            // Adding a slot that's already configured is a no-op, so one adopted back unchanged keeps what
+            // it already had.
             Main.Settings.AddAdditionalSlot(kv.Key);
             Main.Settings.SetTenderId(kv.Key, kv.Value);
+            AdoptPlacement(kv.Key);
+            AdoptCargoChoice(kv.Key);
 
             claimed.Add(kv.Key);
             if (kv.Value != null) claimed.Add(kv.Value);
         }
+
+        // More slots than the museum has stalls is a configuration only the override checkbox can produce
+        if (Main.Settings.AdditionalSlots.Count > MuseumStalls.All.Count)
+            Main.Settings.OverrideSlotLimit = true;
     }
+
+    private static void AdoptPlacement(string locoId)
+    {
+        if (MuseumStalls.PlacementFor(locoId) is (Vector3 offset, float yaw))
+            Main.Settings.SetAdditionalSlotHome(locoId, offset, yaw);
+        else
+            Main.Settings.SetAdditionalSlotHome(locoId, null, 0f);
+    }
+
+    private static void AdoptCargoChoice(string slotId) =>
+        Main.Settings.SetPartsCargoId(slotId, RestorationPartsCustomizer.BakedCargoChoice(slotId));
 
     // Adopting only one half of a save can hand the demonstrators a livery the garage settings still spawn,
     // and the game allows a livery in exactly one garage. Whichever side wasn't adopted gives the livery up.
