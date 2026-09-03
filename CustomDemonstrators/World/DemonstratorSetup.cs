@@ -52,8 +52,8 @@ internal static class DemonstratorSetup
         if (loco != null)
         {
             var panel = controller.GetComponent<LocoRestorationView>();
-            SlotBoard.FitName(panel);
             SlotBoard.Rename(panel, controller.locoLivery);
+            SlotBoard.FitName(panel);
 
             if (replacementLoco != null)
             {

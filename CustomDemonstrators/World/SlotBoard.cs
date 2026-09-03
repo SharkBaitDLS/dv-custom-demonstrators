@@ -39,6 +39,7 @@ internal static class SlotBoard
         SlotPoster.Apply(board, locoId);
 
         var view = board.GetComponent<LocoRestorationView>();
+        Rename(view, controller.locoLivery);
         view.connectionMode = LocoRestorationView.ConnectionMode.Manual;
         view.controller = controller;
         FitName(view);
