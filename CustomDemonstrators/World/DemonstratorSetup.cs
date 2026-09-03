@@ -51,18 +51,10 @@ internal static class DemonstratorSetup
         // Update the quest board and poster image
         if (loco != null)
         {
-            var panel = controller.GetComponent<LocoRestorationView>();
-            SlotBoard.Rename(panel, controller.locoLivery);
-            SlotBoard.FitName(panel);
-
-            if (replacementLoco != null)
-            {
-                SlotPoster.Apply(controller.gameObject, replacementLoco.id);
-            }
-            else
-            {
-                SlotPoster.Restore(controller.gameObject);
-            }
+            var posterId = SlotTypes.IsSlotGarage(controller.garageSpawner?.garageType)
+                ? controller.locoLivery?.id
+                : replacementLoco?.id;
+            SlotBoard.ApplyVisuals(controller.GetComponent<LocoRestorationView>(), controller.locoLivery, posterId);
         }
 
         controller.locoBlockerPrefab = ZoneBlockers.First(

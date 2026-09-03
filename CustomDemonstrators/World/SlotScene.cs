@@ -74,20 +74,25 @@ internal static class SlotScene
         return placement;
     }
 
-    internal static GarageCarSpawner CreateSpawner(
-        string locoId, GarageType_v2 garage, GameObject home, GarageCarSpawner template)
+    // The object a slot's spawner and controller are built on when it has no board to carry them. The
+    // museum keeps both on the board, so a slot without a board still gets one shared object for consistency.
+    // Held inactive so everything is configured before the Awakes that register it run.
+    internal static GameObject CreateContainer(string locoId, Transform? parent)
     {
-        var go = new GameObject($"CustomDemonstrators_{locoId}_Garage");
-        go.SetActive(false); // configure before Awake registers it against its liveries
-        go.transform.SetParent(template.transform.parent, worldPositionStays: false);
+        var obj = new GameObject($"CustomDemonstrators_{locoId}_Restoration");
+        obj.SetActive(false);
+        obj.transform.SetParent(parent, worldPositionStays: false);
+        return obj;
+    }
 
-        var spawner = go.AddComponent<GarageCarSpawner>();
+    internal static GarageCarSpawner CreateSpawner(
+        GameObject host, GarageType_v2 garage, GameObject home, GarageCarSpawner template)
+    {
+        var spawner = host.AddComponent<GarageCarSpawner>();
         spawner.garageType = garage;
         spawner.locoSpawnPoint = home;
         spawner.spawnLocoPlayerSqrDistanceFromTrack = template.spawnLocoPlayerSqrDistanceFromTrack;
         spawner.flipSpawnLoco = template.flipSpawnLoco;
-
-        go.SetActive(true);
         return spawner;
     }
 
@@ -185,15 +190,11 @@ internal static class SlotScene
     }
 
     internal static LocoRestorationController CreateController(
-        TrainCarLivery loco, TrainCarLivery? tender, LocoRestorationController template,
+        GameObject host, TrainCarLivery loco, TrainCarLivery? tender, LocoRestorationController template,
         GarageCarSpawner spawner, GenericThingCashRegisterModule order, GenericThingCashRegisterModule install,
         LocoRestorationSpawnPoint[] spawnPoints, string destinationTrackId)
     {
-        var go = new GameObject($"CustomDemonstrators_{loco.id}_Restoration");
-        go.SetActive(false); // Awake registers the controller and Start spawns the wreck; configure first
-        go.transform.SetParent(template.transform.parent, worldPositionStays: false);
-
-        var controller = go.AddComponent<LocoRestorationController>();
+        var controller = host.AddComponent<LocoRestorationController>();
 
         // Everything the slot shares with the museum at large — restoration license, destination track,
         // themes, part delivery warehouse — is copied wholesale, then the per-slot pieces are overridden.
@@ -223,7 +224,6 @@ internal static class SlotScene
             controller.secondCarBlockerPrefab,
             controller.locoBlockerPrefab);
 
-        go.SetActive(true);
         return controller;
     }
 }

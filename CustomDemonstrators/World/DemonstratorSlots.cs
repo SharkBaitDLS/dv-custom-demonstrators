@@ -161,15 +161,33 @@ internal static class DemonstratorSlots
 
         var home = SlotScene.CreateHome(locoId, template.garageSpawner);
         built.Home = home.Marker;
-        built.Spawner = SlotScene.CreateSpawner(locoId, garage, built.Home, template.garageSpawner);
         built.Register = SlotScene.FindRegister(template.orderPartsModule);
         (built.Order, built.Install) = SlotScene.CreateRegisterModules(locoId, template, built.Register);
         built.CargoTemplate = template.locoPartCargo;
 
+        var destination = SlotScene.DestinationTrackFor(locoId, home, template.destinationTrackId);
+
+        // The garage spawner and the restoration controller both live on the poster object, or a dummy container
+        // if for some reason a poster couldn't be built. Either way it's held inactive until the slot is whole,
+        // so nothing Awakes onto a half-built one.
+        var pending = SlotBoard.Prepare(locoId, template, home);
+        var host = pending?.Board ?? SlotScene.CreateContainer(locoId, template.transform.parent);
+
+        built.Spawner = SlotScene.CreateSpawner(host, garage, built.Home, template.garageSpawner);
         built.Controller = SlotScene.CreateController(
-            loco, tender, template, built.Spawner, built.Order, built.Install, spawnPoints,
-            SlotScene.DestinationTrackFor(locoId, home, template.destinationTrackId));
-        built.Board = SlotBoard.Create(locoId, template, home, built.Controller);
+            host, loco, tender, template, built.Spawner, built.Order, built.Install, spawnPoints, destination);
+
+        // Installing a board into the museum is what wakes it
+        if (pending is SlotBoard.Pending ready)
+        {
+            built.Board = ready.Install(built.Controller, locoId);
+        }
+        // A manually created container has to also be awoken manually
+        else
+        {
+            host.SetActive(true);
+        }
+
         DemonstratorRespawner.SettleNewDemonstrator(built.Controller);
 
         Main.Logger.Log($"Built additional demonstrator slot for {locoId}.");
@@ -186,18 +204,24 @@ internal static class DemonstratorSlots
         // Its restoration no longer counts as done, so the museum shouldn't keep offering the summon.
         GarageUnlocks.Revoke(slot.Garage);
 
+        // A slot's spawner and controller share one object, which is its board when it got one. So
+        // SlotBoard.Destroy and has to run first because it is what hands the museum's
+        // culling list and our poster textures back before the object dies. Only a slot that never got a
+        // board has further cleanup.
+        var host = slot.Controller?.gameObject ?? slot.Spawner?.gameObject;
+        var isSeparate = host != null && host != slot.Board;
+
         if (slot.Controller != null)
         {
             LocoRestorationController.allLocoRestorationControllers.Remove(slot.Controller);
             DemonstratorCars.Retire(slot.Controller, slot.Spawner);
             slot.Controller.StopAllCoroutines();
-            UnityEngine.Object.Destroy(slot.Controller.gameObject);
         }
 
         SlotScene.DetachRegisterModules(slot.Register, slot.Order, slot.Install);
         SlotBoard.Destroy(slot.Board);
+        if (isSeparate) UnityEngine.Object.Destroy(host);
 
-        if (slot.Spawner != null) UnityEngine.Object.Destroy(slot.Spawner.gameObject);
         if (slot.Home != null) UnityEngine.Object.Destroy(slot.Home);
 
         var types = Globals.G?.Types;

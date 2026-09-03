@@ -13,9 +13,42 @@ namespace CustomDemonstrators.World;
 // A custom quest board placed next to the home track for an added demonstrator
 internal static class SlotBoard
 {
-    internal static GameObject? Create(
-        string locoId, LocoRestorationController template, SlotScene.SlotHome home,
-        LocoRestorationController controller)
+    // A cloned board held out of the world, waiting for the controller that will attach to it. Nothing on it
+    // has woken yet, so the caller can finish building the slot onto it. Install activates and places it.
+    internal readonly struct Pending(
+        GameObject board, GameObject holder, Transform source, Vector3 position, Quaternion rotation, bool inStall)
+    {
+        // The object to build the rest of the slot onto.
+        internal readonly GameObject Board = board;
+
+        private readonly GameObject Holder = holder;
+        private readonly Transform Source = source;
+        private readonly Vector3 Position = position;
+        private readonly Quaternion Rotation = rotation;
+        private readonly bool InStall = inStall;
+
+        internal GameObject Install(LocoRestorationController controller, string locoId)
+        {
+            var view = Board.GetComponent<LocoRestorationView>();
+            ApplyVisuals(view, controller.locoLivery, locoId);
+            view.connectionMode = LocoRestorationView.ConnectionMode.Manual;
+            view.controller = controller;
+
+            Board.transform.localPosition = Position;
+            Board.transform.localRotation = Rotation;
+            Optimize(Board.transform, Source, InStall);
+
+            // Parenting it out of the holder is what wakes the board, and the whole slot riding on it
+            Board.transform.SetParent(Source.parent, worldPositionStays: false);
+
+            Object.Destroy(Holder);
+            return Board;
+        }
+    }
+
+    // Clones the museum's own panel for a slot and holds it inactive. The museum keeps a restoration and its
+    // panel on one object. The caller is responsible for building the slot onto the board and Installing it.
+    internal static Pending? Prepare(string locoId, LocoRestorationController template, SlotScene.SlotHome home)
     {
         var source = Template(template);
         if (source == null)
@@ -28,30 +61,17 @@ internal static class SlotBoard
         if (Pose(locoId, source.transform, home, template) is not (Vector3 position, Quaternion rotation))
             return null;
 
-        // Build it in a disabled holder so that we have time to strip off all the quest associations from
-        // the clone and parent it into the museum's culling logic before it activates.
+        // Build it in a disabled holder so that we have time to strip the quest associations off the clone,
+        // hang the slot on it and parent it into the museum's culling logic before any of it activates.
         var holder = new GameObject($"CustomDemonstrators_{locoId}_BoardBuilder");
         holder.SetActive(false);
 
         var board = Object.Instantiate(source.gameObject, holder.transform, worldPositionStays: false);
         board.name = $"CustomDemonstrators_{locoId}_Board";
         Strip(board, template);
-        SlotPoster.Apply(board, locoId);
 
-        var view = board.GetComponent<LocoRestorationView>();
-        Rename(view, controller.locoLivery);
-        view.connectionMode = LocoRestorationView.ConnectionMode.Manual;
-        view.controller = controller;
-        FitName(view);
-
-        board.transform.localPosition = position;
-        board.transform.localRotation = rotation;
-        Optimize(board.transform, source.transform, inStall: !string.IsNullOrEmpty(home.Stall));
-
-        board.transform.SetParent(source.transform.parent, worldPositionStays: false);
-
-        Object.Destroy(holder);
-        return board;
+        return new Pending(
+            board, holder, source.transform, position, rotation, !string.IsNullOrEmpty(home.Stall));
     }
 
     internal static void Destroy(GameObject? board)
@@ -67,8 +87,19 @@ internal static class SlotBoard
         Object.Destroy(board);
     }
 
+    internal static void ApplyVisuals(LocoRestorationView? view, TrainCarLivery? livery, string? posterId)
+    {
+        if (view == null) return;
+
+        FitName(view);
+        Rename(view, livery);
+
+        if (string.IsNullOrEmpty(posterId)) SlotPoster.Restore(view.gameObject);
+        else SlotPoster.Apply(view.gameObject, posterId!);
+    }
+
     // The fixed font size for vanilla demonstrators is too large for many modded locos' names
-    internal static void FitName(LocoRestorationView? view)
+    private static void FitName(LocoRestorationView? view)
     {
         var plate = view?.locoNameLabel;
         if (plate == null || plate.enableAutoSizing) return;
@@ -104,7 +135,7 @@ internal static class SlotBoard
     }
 #endif
 
-    internal static void Rename(LocoRestorationView? view, TrainCarLivery? livery)
+    private static void Rename(LocoRestorationView? view, TrainCarLivery? livery)
     {
         var plate = view?.locoNameLabel;
         if (plate == null || livery == null) return;

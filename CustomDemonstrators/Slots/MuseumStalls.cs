@@ -113,7 +113,7 @@ internal static class MuseumStalls
             : SingletonBehaviour<RailTrackRegistryBase>.Instance?.GetTrackWithName(name);
 
     // A point on the stall to hang the garage off. Anything on the track will do — the garage spawner and
-    // the restoration both resolve back to the nearest track — so the midpoint is the safest choice.
+    // the controller both resolve back to the nearest track — so the midpoint is the safest choice.
     internal static Vector3? Midpoint(string? name)
     {
         var curve = Track(name)?.curve;
