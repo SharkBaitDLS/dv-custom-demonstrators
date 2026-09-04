@@ -24,6 +24,7 @@ internal static class WorldStreamingInit_Awake_Patch
         MuseumStalls.Reset();
         DemonstratorSlots.Reset();
         RestorationPopups.Reset();
+        GaragePreviews.Reset();
     }
 }
 
@@ -35,6 +36,13 @@ internal static class WorldStreamingInit_Awake_Patch
 internal static class GarageCarSpawner_Awake_Patch
 {
     private static void Prefix() => GarageLiveries.Apply();
+}
+
+// There's a static model inside the locked garages of their contents. Replace it with a CCL prefab.
+[HarmonyPatch(typeof(GaragePadlockUnlocker), "Start")]
+internal static class GaragePadlockUnlocker_Start_Patch
+{
+    private static void Prefix(GaragePadlockUnlocker __instance) => GaragePreviews.Replace(__instance);
 }
 
 [HarmonyPatch(typeof(CommsRadioCrewVehicle), "Awake")]

@@ -16,7 +16,10 @@ internal static class WorkTrainGarages
         foreach (var (garage, isDemonstrator, _) in VanillaGarages.Groups)
         {
             if (isDemonstrator) continue;
-            if (SpawnerFor(garage) is GarageCarSpawner spawner) Reconcile(spawner);
+            if (SpawnerFor(garage) is not GarageCarSpawner spawner) continue;
+
+            Reconcile(spawner);
+            GaragePreviews.Refresh(spawner);
         }
     }
 
@@ -78,6 +81,13 @@ internal static class WorkTrainGarages
         }
 
         spawner.garageCars = rebuilt;
+
+        if (!GarageUnlocks.IsSpawningAllowed(spawner))
+        {
+            Main.Logger.Log($"Garage {spawner.garageType.id} is still locked, so its new consist stays "
+                + "unspawned until the player opens it.");
+            return;
+        }
 
         // A deleted car's collider lingers until Object.Destroy runs at the end of the frame, so wait until
         // the blockers are actually gone before respawning.

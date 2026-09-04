@@ -39,6 +39,9 @@ internal static class GarageUnlocks
         SpawnAllowed?.SetValue(spawner, false);
     }
 
+    internal static bool IsSpawningAllowed(GarageCarSpawner? spawner) =>
+        spawner != null && SpawnAllowed?.GetValue(spawner) is true;
+
     internal static LicenseManager? Manager() =>
         typeof(SingletonBehaviour<LicenseManager>)
             .GetField("_instance", BindingFlags.NonPublic | BindingFlags.Static)?
