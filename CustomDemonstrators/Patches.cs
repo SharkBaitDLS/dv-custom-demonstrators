@@ -23,6 +23,7 @@ internal static class WorldStreamingInit_Awake_Patch
         SaveConfig.Reset();
         MuseumStalls.Reset();
         DemonstratorSlots.Reset();
+        RestorationPopups.Reset();
     }
 }
 
@@ -77,4 +78,27 @@ internal static class StartGameData_FromSaveGame_DoLoad_Patch
 internal static class StartGameData_NewCareer_DoLoad_Patch
 {
     private static void Prefix() => DemonstratorSlots.BuildAll();
+}
+
+// Restoration steps announce themselves through a popup that only holds one message at a time, so
+// slots sharing a license would clobber each other when the license is purchased. Instead, queue them.
+[HarmonyPatch(typeof(LocoRestorationController), "SetState")]
+internal static class LocoRestorationController_SetState_Patch
+{
+    private static void Prefix() => RestorationPopups.BeginCapture();
+
+    private static void Finalizer() => RestorationPopups.EndCapture();
+}
+
+[HarmonyPatch(typeof(TutorialHelper), nameof(TutorialHelper.ShowTutorialFloatie))]
+internal static class TutorialHelper_ShowTutorialPopup_Patch
+{
+    private static bool Prefix(string message, bool manualDismiss) =>
+        RestorationPopups.ShouldShow(message, manualDismiss);
+}
+
+[HarmonyPatch(typeof(TutorialHelper), nameof(TutorialHelper.HideTutorialFloatie))]
+internal static class TutorialHelper_HideTutorialPopup_Patch
+{
+    private static void Postfix() => RestorationPopups.OnDismissed();
 }
