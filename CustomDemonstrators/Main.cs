@@ -25,8 +25,6 @@ public static class Main
         {
             harmony = new Harmony(modEntry.Info.Id);
             harmony.PatchAll(Assembly.GetExecutingAssembly());
-
-            // Other plugin startup logic
         }
         catch (Exception ex)
         {

@@ -1,6 +1,6 @@
 ## Description
 
-This is a mod for Derail Valley to customize Demonstrator and garage spawns. For details, see [the mod page on Nexus Mods](https://www.nexusmods.com/derailvalley/mods/1546).
+This is a mod for Derail Valley to customize Demonstrator and garage spawns with modded rolling stock. For details, see [the mod page on Nexus Mods](https://www.nexusmods.com/derailvalley/mods/1546).
 
 ## API for other mods
 
