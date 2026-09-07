@@ -46,6 +46,9 @@ public class Settings : UnityModManager.ModSettings
     // leave it as an opt-in with an appropriate warning about how fucked your gamestate can get by doing this.
     public bool OverrideSlotLimit { get; set; }
 
+    // Gates overrides etc. that most users will just want the CCL-author provided values for
+    public bool ShowAdvanced { get; set; }
+
     // Demonstrator slots this mod adds on top of the game's six. A slot is identified by the loco it
     // restores rather than by a synthetic id since the game keys restoration save state by locoLivery.id.
     // One loco can back exactly one slot, and every per-slot setting below (tender, cargo, prices) keys

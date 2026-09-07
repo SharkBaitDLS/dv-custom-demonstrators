@@ -40,6 +40,13 @@ internal static class SettingsGUI
     private static string ExtraKey(string garageId) => $"extra:{garageId}";
     private const string AdditionalKey = "additional";
 
+    // Constants to build an actual consistent grid layout
+    private const float ArrowWidth = 20f;
+    private const float SubIndent = 15f;
+    private const float SubLabelWidth = 228f;
+    private const float NameWidth = SubIndent + SubLabelWidth - ArrowWidth;
+    private const float ControlWidth = 300f;
+
     // Edit buffers for the price text fields, keyed by "<slotId>:order" / "<slotId>:install"
     private static readonly Dictionary<string, string> _priceText = [];
 
@@ -71,6 +78,8 @@ internal static class SettingsGUI
 #if DEBUG
         DebugCheats.Draw();
 #endif
+
+        DrawAdvancedToggle();
 
         var groups = VanillaGarages.Groups;
 
@@ -131,6 +140,23 @@ internal static class SettingsGUI
         Main.Settings.Save(entry);
     }
 
+    private static void DrawAdvancedToggle()
+    {
+        GUILayout.BeginHorizontal();
+        bool advanced = GUILayout.Toggle(Main.Settings.ShowAdvanced,
+            " Show advanced settings", GUILayout.Width(200));
+        if (advanced != Main.Settings.ShowAdvanced)
+        {
+            Main.Settings.ShowAdvanced = advanced;
+            if (!advanced)
+                _openCargoPickerFor = null;
+        }
+        GUILayout.Label("Shows settings to override CCL mod author-provided demonstrator quest values.");
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+        GUILayout.Space(6);
+    }
+
     private static string Loc(string? key, string fallback) =>
         string.IsNullOrEmpty(key) ? fallback : LocalizationAPI.L(key);
 
@@ -153,7 +179,7 @@ internal static class SettingsGUI
                 DrawReplacementRow(livery, kind);
                 if (kind == SlotKind.Demonstrator)
                 {
-                    DrawDemonstratorExtras(livery.id, Main.Settings.GetReplacement(livery) ?? livery,
+                    DrawDemonstratorRows(livery.id, Main.Settings.GetReplacement(livery) ?? livery,
                         VanillaGarages.OriginalTender(garage));
                 }
             }
@@ -163,6 +189,18 @@ internal static class SettingsGUI
         GUILayout.Space(2);
         GUILayout.EndVertical();
         GUILayout.Space(2);
+    }
+
+    private static void RowHeader(string name, string separator = "→")
+    {
+        GUILayout.Label(name, GUILayout.Width(NameWidth));
+        GUILayout.Label(separator, GUILayout.Width(ArrowWidth));
+    }
+
+    private static void SubRowHeader(string label)
+    {
+        GUILayout.Label("", GUILayout.Width(SubIndent));
+        GUILayout.Label(label, GUILayout.Width(SubLabelWidth));
     }
 
     private static void DrawReplacementRow(TrainCarLivery livery, SlotKind kind)
@@ -178,9 +216,8 @@ internal static class SettingsGUI
                 : $"? {replacementId}";
 
         GUILayout.BeginHorizontal();
-        GUILayout.Label(displayName, GUILayout.Width(200));
-        GUILayout.Label("→", GUILayout.Width(20));
-        if (GUILayout.Button($"{replacementLabel} ▼", GUILayout.Width(240)))
+        RowHeader(displayName);
+        if (GUILayout.Button($"{replacementLabel} ▼", GUILayout.Width(ControlWidth)))
         {
             _openPickerFor = pickerOpen ? null : livery.id;
             SearchPicker.Reset(ReplacementKey(livery.id));
@@ -196,15 +233,20 @@ internal static class SettingsGUI
             SearchPicker.Draw(ReplacementKey(livery.id), ReplacementOptions(livery, kind));
     }
 
-    // Quest tuning shown beneath a demonstrator row. Shared by the game's slots and the ones this mod
-    // adds: both key their settings off a slot id, which for an added slot is simply its loco.
-    private static void DrawDemonstratorExtras(string slotId, TrainCarLivery effectiveLoco, TrainCarLivery? originalTender)
+    private static void DrawDemonstratorRows(string slotId, TrainCarLivery effectiveLoco, TrainCarLivery? originalTender)
+    {
+        DrawTenderRow(slotId, originalTender);
+        if (Main.Settings.ShowAdvanced)
+            DrawDemonstratorExtras(slotId, effectiveLoco);
+        GUILayout.Space(4);
+    }
+
+    private static void DrawTenderRow(string slotId, TrainCarLivery? originalTender)
     {
         GUILayout.BeginHorizontal();
-        GUILayout.Space(20);
-        GUILayout.Label("Tender:", GUILayout.Width(80));
+        SubRowHeader("Secondary car (tender, B-unit, etc.):");
         bool tenderOpen = _openTenderPickerFor == slotId;
-        if (GUILayout.Button($"{TenderLabel(slotId, originalTender)} ▼", GUILayout.Width(300)))
+        if (GUILayout.Button($"{TenderLabel(slotId, originalTender)} ▼", GUILayout.Width(ControlWidth)))
         {
             _openTenderPickerFor = tenderOpen ? null : slotId;
             SearchPicker.Reset(TenderKey(slotId));
@@ -214,12 +256,14 @@ internal static class SettingsGUI
 
         if (tenderOpen)
             SearchPicker.Draw(TenderKey(slotId), TenderOptions(slotId, originalTender));
+    }
 
+    private static void DrawDemonstratorExtras(string slotId, TrainCarLivery effectiveLoco)
+    {
         GUILayout.BeginHorizontal();
-        GUILayout.Space(20);
-        GUILayout.Label("Parts cargo:", GUILayout.Width(80));
+        SubRowHeader("Parts cargo:");
         bool open = _openCargoPickerFor == slotId;
-        if (GUILayout.Button($"{CargoChoiceLabel(slotId, effectiveLoco)} ▼", GUILayout.Width(300)))
+        if (GUILayout.Button($"{CargoChoiceLabel(slotId, effectiveLoco)} ▼", GUILayout.Width(ControlWidth)))
         {
             _openCargoPickerFor = open ? null : slotId;
             SearchPicker.Reset(CargoKey(slotId));
@@ -227,22 +271,27 @@ internal static class SettingsGUI
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
 
-        if (open)
-            SearchPicker.Draw(CargoKey(slotId), CargoOptions(slotId));
+        if (open) SearchPicker.Draw(CargoKey(slotId), CargoOptions(slotId));
+
+        // TODO: pull these from CCL metadata once that exists
+        float partsPrice = 15000.00f;
+        float installPrice = 10000.00f;
 
         GUILayout.BeginHorizontal();
-        GUILayout.Space(20);
-        GUILayout.Label("Order price:", GUILayout.Width(80));
+        SubRowHeader("Order price:");
         DrawPriceField($"{slotId}:order", Main.Settings.GetOrderPrice(slotId),
             v => Main.Settings.SetOrderPrice(slotId, v));
-        GUILayout.Space(12);
-        GUILayout.Label("Install price:", GUILayout.Width(80));
-        DrawPriceField($"{slotId}:install", Main.Settings.GetInstallPrice(slotId),
-            v => Main.Settings.SetInstallPrice(slotId, v));
-        GUILayout.Label("(blank = game default)");
+        GUILayout.Label($"default: ${partsPrice}");
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
-        GUILayout.Space(4);
+
+        GUILayout.BeginHorizontal();
+        SubRowHeader("Install price:");
+        DrawPriceField($"{slotId}:install", Main.Settings.GetInstallPrice(slotId),
+            v => Main.Settings.SetInstallPrice(slotId, v));
+        GUILayout.Label($"default: ${installPrice}");
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
     }
 
     // Extra cars appended to the spawned consist beyond the default car.
@@ -253,8 +302,8 @@ internal static class SettingsGUI
             var lv = GetLiveryById(id);
             string name = lv != null ? Loc(lv.localizationKey, lv.id) : $"? {id}";
             GUILayout.BeginHorizontal();
-            GUILayout.Space(20);
-            GUILayout.Label($"+ {name}  [{id}]", GUILayout.Width(300));
+            SubRowHeader($"+ {name}");
+            GUILayout.Label($"[{id}]", GUILayout.Width(ControlWidth));
             if (GUILayout.Button("Remove", GUILayout.Width(70)))
                 Main.Settings.RemoveExtraCar(garage.id, id);
             GUILayout.FlexibleSpace();
@@ -263,7 +312,7 @@ internal static class SettingsGUI
 
         bool open = _openExtraPickerFor == garage.id;
         GUILayout.BeginHorizontal();
-        GUILayout.Space(20);
+        SubRowHeader("");
         if (GUILayout.Button(open ? "Add car ▲" : "Add car ▼", GUILayout.Width(140)))
         {
             _openExtraPickerFor = open ? null : garage.id;
@@ -298,8 +347,8 @@ internal static class SettingsGUI
             bool hasStall = !slot.Home.HasValue && stallsLeft-- > 0;
 
             GUILayout.BeginHorizontal();
-            GUILayout.Label(name, GUILayout.Width(220));
-            GUILayout.Label($"[{slot.LocoId}]", GUILayout.Width(220));
+            RowHeader(name, "");
+            GUILayout.Label($"[{slot.LocoId}]", GUILayout.Width(ControlWidth));
             bool remove = GUILayout.Button("Remove", GUILayout.Width(70));
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
@@ -312,7 +361,7 @@ internal static class SettingsGUI
 
             if (!hasStall) DrawHomeRow(slot);
             if (loco != null)
-                DrawDemonstratorExtras(slot.LocoId, loco, null);
+                DrawDemonstratorRows(slot.LocoId, loco, null);
         }
 
         DrawAddSlotRow();
@@ -366,9 +415,8 @@ internal static class SettingsGUI
         var player = PlayerManager.PlayerTransform;
 
         GUILayout.BeginHorizontal();
-        GUILayout.Space(20);
-        GUILayout.Label("Placement:", GUILayout.Width(80));
-        GUILayout.Label(PlacementLabel(slot, anchor), GUILayout.Width(230));
+        SubRowHeader("Placement:");
+        GUILayout.Label(PlacementLabel(slot, anchor), GUILayout.Width(ControlWidth));
 
         if (anchor != null && player != null
             && GUILayout.Button("Set to where I'm standing", GUILayout.Width(190)))
