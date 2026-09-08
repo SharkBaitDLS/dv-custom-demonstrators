@@ -1,4 +1,3 @@
-using System;
 using HarmonyLib;
 using CustomDemonstrators.World;
 
@@ -10,11 +9,7 @@ internal static class ProfileUnlocks
 {
     private static bool Prefix(string garageId, ref bool __result)
     {
-        if (string.IsNullOrEmpty(garageId)
-            || !garageId.StartsWith(SlotTypes.GarageIdPrefix, StringComparison.Ordinal))
-        {
-            return true;
-        }
+        if (!SlotTypes.IsAddedId(garageId)) return true;
 
         __result = false; // tell the game there are no changes to persist
         return false;

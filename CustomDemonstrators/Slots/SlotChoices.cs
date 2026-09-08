@@ -70,9 +70,12 @@ internal static class SlotChoices
         if (CurrentSpawnId(slot) != candidate.id && ExtraCarIds().Contains(candidate.id))
             return false;
 
-        // Same for a car serving one of the slots this mod adds: those are chosen directly rather than
-        // being a replacement for something, so there's nothing to trade back.
+        // Same for a car serving one of the additional slots this mod adds: those are chosen directly
+        // rather than being a replacement for something, so there's nothing to trade back.
         if (CurrentSpawnId(slot) != candidate.id && AdditionalSlotIds().Contains(candidate.id))
+            return false;
+
+        if (CurrentSpawnId(slot) != candidate.id && AdditionalGarageIds().Contains(candidate.id))
             return false;
 
         // Selecting a candidate another slot already spawns trades our current spawn to that slot.
@@ -207,6 +210,9 @@ internal static class SlotChoices
 
         foreach (var id in AdditionalSlotIds())
             yield return id;
+
+        foreach (var id in AdditionalGarageIds())
+            yield return id;
     }
 
     // The locos (and tenders) claimed by the demonstrator slots this mod adds.
@@ -223,10 +229,27 @@ internal static class SlotChoices
         return ids;
     }
 
+    // The full consist of cars claimed by the garages this mod adds
+    internal static HashSet<string> AdditionalGarageIds()
+    {
+        var ids = new HashSet<string>();
+        foreach (var garage in Main.Settings.AdditionalGarages)
+        {
+            if (string.IsNullOrEmpty(garage.PrimaryId)) continue;
+            foreach (var id in Main.Settings.AdditionalGarageCars(garage.PrimaryId)) ids.Add(id);
+        }
+        return ids;
+    }
+
     // Whether `candidate` can back a brand new demonstrator slot: it has to satisfy the same rules as a
     // demonstrator replacement and not already be spawned anywhere in the pool.
     internal static bool CanBeAdditionalSlot(TrainCarLivery candidate) =>
         IsValidDemonstrator(candidate) && !AllSpawnedIds().Contains(candidate.id);
+
+    // A garage of this mod's own takes anything the game isn't already spawning, the same rule as the extra
+    // cars appended to one of the game's garages.
+    internal static bool CanBeAdditionalGarage(TrainCarLivery candidate) =>
+        !AllSpawnedIds().Contains(candidate.id);
 
 
     // Liveries currently configured as a garage's extra consist cars.

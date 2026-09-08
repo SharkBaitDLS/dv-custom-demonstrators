@@ -5,6 +5,7 @@ using DV;
 using DV.ThingTypes;
 using UnityEngine;
 using UnityModManagerNet;
+using CustomDemonstrators.World;
 
 namespace CustomDemonstrators.Config;
 
@@ -46,6 +47,9 @@ public class Settings : UnityModManager.ModSettings
     // leave it as an opt-in with an appropriate warning about how fucked your gamestate can get by doing this.
     public bool OverrideSlotLimit { get; set; }
 
+    // If a user wants to hand-place extra work train garages in the world, they can opt into that
+    public bool AllowAdditionalGarages { get; set; }
+
     // Gates overrides etc. that most users will just want the CCL-author provided values for
     public bool ShowAdvanced { get; set; }
 
@@ -76,6 +80,48 @@ public class Settings : UnityModManager.ModSettings
                 Home = e.HasHome ? new Vector3(e.HomeX, e.HomeY, e.HomeZ) : null,
                 HomeYaw = e.HomeYaw,
             })];
+    }
+
+    // Garages this mod adds on top of the game's own
+    [XmlIgnore] internal List<AdditionalGarage> AdditionalGarages { get; set; } = [];
+
+    public AdditionalGarageEntry[] ExtraGarages
+    {
+        get => [.. AdditionalGarages.Select(g => new AdditionalGarageEntry
+        {
+            PrimaryId = g.PrimaryId,
+            HasHome = g.Home.HasValue,
+            HomeX = g.Home?.x ?? 0f,
+            HomeY = g.Home?.y ?? 0f,
+            HomeZ = g.Home?.z ?? 0f,
+            HomeYaw = g.HomeYaw,
+        })];
+        set => AdditionalGarages = [.. (value ?? [])
+            .Where(e => !string.IsNullOrEmpty(e.PrimaryId))
+            .GroupBy(e => e.PrimaryId)
+            .Select(g => g.First())
+            .Select(e => new AdditionalGarage
+            {
+                PrimaryId = e.PrimaryId,
+                Home = e.HasHome ? new Vector3(e.HomeX, e.HomeY, e.HomeZ) : null,
+                HomeYaw = e.HomeYaw,
+            })];
+    }
+
+    [XmlIgnore] internal Dictionary<string, float> GarageSummonPrices { get; set; } = [];
+
+    public GarageSummonEntry[] SummonPriceOverrides
+    {
+        get => [.. GarageSummonPrices.Select(kv => new GarageSummonEntry
+        {
+            GarageId = kv.Key,
+            SummonPrice = kv.Value,
+        })];
+        set => GarageSummonPrices = (value ?? [])
+            .Where(e => !string.IsNullOrEmpty(e.GarageId) && e.SummonPrice >= 0f)
+            .GroupBy(e => e.GarageId)
+            .Select(g => g.First())
+            .ToDictionary(e => e.GarageId, e => e.SummonPrice);
     }
 
     // Per-demonstrator quest tuning, keyed by the original demonstrator livery id
@@ -187,6 +233,7 @@ public class Settings : UnityModManager.ModSettings
     {
         AdditionalSlots.RemoveAll(s => s.LocoId == locoId);
         Demonstrators.Remove(locoId);
+        SetSummonPrice(SlotTypes.SlotGarageId(locoId), null);
     }
 
     internal void SetAdditionalSlotHome(string locoId, Vector3? home, float yaw)
@@ -196,6 +243,44 @@ public class Settings : UnityModManager.ModSettings
         slot.HomeYaw = yaw;
     }
 
+    internal float? GetSummonPrice(string garageId) =>
+        GarageSummonPrices.TryGetValue(garageId, out var price) ? price : null;
+
+    internal void SetSummonPrice(string garageId, float? price)
+    {
+        if (price is float value && value >= 0f) GarageSummonPrices[garageId] = value;
+        else GarageSummonPrices.Remove(garageId);
+    }
+
+    internal bool IsAdditionalGarage(string primaryId) =>
+        AdditionalGarages.Any(g => g.PrimaryId == primaryId);
+
+    internal AdditionalGarage? GetAdditionalGarage(string primaryId) =>
+        AdditionalGarages.FirstOrDefault(g => g.PrimaryId == primaryId);
+
+    internal void AddAdditionalGarage(string primaryId)
+    {
+        if (IsAdditionalGarage(primaryId)) return;
+        AdditionalGarages.Add(new AdditionalGarage { PrimaryId = primaryId });
+    }
+
+    internal void RemoveAdditionalGarage(string primaryId)
+    {
+        AdditionalGarages.RemoveAll(g => g.PrimaryId == primaryId);
+        ClearExtraCars(SlotTypes.WorkGarageId(primaryId));
+        SetSummonPrice(SlotTypes.WorkGarageId(primaryId), null);
+    }
+
+    internal IEnumerable<string> AdditionalGarageCars(string primaryId) =>
+        [primaryId, .. GetExtraCars(SlotTypes.WorkGarageId(primaryId))];
+
+    internal void SetAdditionalGarageHome(string primaryId, Vector3? home, float yaw)
+    {
+        if (GetAdditionalGarage(primaryId) is not AdditionalGarage garage) return;
+        garage.Home = home;
+        garage.HomeYaw = yaw;
+    }
+
     internal class AdditionalSlot
     {
         public string LocoId = "";
@@ -203,6 +288,25 @@ public class Settings : UnityModManager.ModSettings
         // A position placed by hand, which takes precedence over any museum stall.
         public Vector3? Home;
         public float HomeYaw;
+    }
+
+    internal class AdditionalGarage
+    {
+        public string PrimaryId = "";
+
+        // Where the player put it. Until this is set, the locomotive won't spawn or be in the comms radio.
+        public Vector3? Home;
+        public float HomeYaw;
+    }
+
+    public class AdditionalGarageEntry
+    {
+        [XmlAttribute] public string PrimaryId { get; set; } = "";
+        [XmlAttribute] public bool HasHome { get; set; }
+        [XmlAttribute] public float HomeX { get; set; }
+        [XmlAttribute] public float HomeY { get; set; }
+        [XmlAttribute] public float HomeZ { get; set; }
+        [XmlAttribute] public float HomeYaw { get; set; }
     }
 
     public class AdditionalSlotEntry
@@ -227,6 +331,12 @@ public class Settings : UnityModManager.ModSettings
     {
         [XmlAttribute] public string LiveryId { get; set; } = "";
         [XmlAttribute] public string ReplacementId { get; set; } = "";
+    }
+
+    public class GarageSummonEntry
+    {
+        [XmlAttribute] public string GarageId { get; set; } = "";
+        [XmlAttribute] public float SummonPrice { get; set; } = -1f;
     }
 
     public class GarageExtraEntry

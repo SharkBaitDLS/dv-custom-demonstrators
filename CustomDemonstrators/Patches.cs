@@ -22,7 +22,9 @@ internal static class WorldStreamingInit_Awake_Patch
         CommsRadioRefresher.Reset();
         SaveConfig.Reset();
         MuseumStalls.Reset();
+        GarageHomes.Reset();
         DemonstratorSlots.Reset();
+        AddedGarages.Reset();
         RestorationPopups.Reset();
         GaragePreviews.Reset();
     }
@@ -73,19 +75,28 @@ internal static class LocoRestorationController_LoadData_Patch
         DemonstratorRespawner.SettleLoadedSlot(__instance);
 }
 
-// Build the slots this mod adds on top of the game's six. Both career entry points are patched because a
-// new career and a loaded save reach the same window by different routes.
+// Build the demonstrator slots and garages this mod adds on top of the game's own. Both career entry points
+// are patched because a new career and a loaded save reach the same window by different routes.
 
 [HarmonyPatch(typeof(StartGameData_FromSaveGame), "DoLoad")]
 internal static class StartGameData_FromSaveGame_DoLoad_Patch
 {
-    private static void Prefix() => DemonstratorSlots.BuildAll();
+    private static void Prefix() => Additions.BuildAll();
 }
 
 [HarmonyPatch(typeof(StartGameData_NewCareer), "DoLoad")]
 internal static class StartGameData_NewCareer_DoLoad_Patch
 {
-    private static void Prefix() => DemonstratorSlots.BuildAll();
+    private static void Prefix() => Additions.BuildAll();
+}
+
+internal static class Additions
+{
+    internal static void BuildAll()
+    {
+        DemonstratorSlots.BuildAll();
+        AddedGarages.BuildAll();
+    }
 }
 
 // Restoration steps announce themselves through a popup that only holds one message at a time, so

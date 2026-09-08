@@ -33,12 +33,14 @@ internal static class SettingsGUI
     private static string? _openTenderPickerFor;
     private static string? _openExtraPickerFor;
     private static bool _openAdditionalPicker;
+    private static bool _openAdditionalGaragePicker;
 
     private static string ReplacementKey(string slotId) => $"replacement:{slotId}";
     private static string CargoKey(string slotId) => $"cargo:{slotId}";
     private static string TenderKey(string slotId) => $"tender:{slotId}";
     private static string ExtraKey(string garageId) => $"extra:{garageId}";
     private const string AdditionalKey = "additional";
+    private const string AdditionalGarageKey = "additionalGarage";
 
     // Constants to build an actual consistent grid layout
     private const float ArrowWidth = 20f;
@@ -52,9 +54,9 @@ internal static class SettingsGUI
 
     private const string IntroText =
         """
-        Choose a replacement for each Demonstrator and Garage spawn or add additional Demonstrators. The chosen stock spawns in place of the default when a new save is created.
+        Choose a replacement for each Demonstrator and work train spawn, or add Demonstrators and work trains of your own. The chosen stock spawns in place of the default when a new save is created.
 
-        If you load an existing save and your settings do not match what already exists in it, this mod will do nothing until you either press the force respawn buttons below or adopt the save's own settings.
+        If you load an existing save and your settings do not match what already exists in it, this mod will do nothing until you either press the apply settings buttons below or adopt the save's own settings.
         """;
 
     internal static void OnGUI(UnityModManager.ModEntry entry)
@@ -88,6 +90,8 @@ internal static class SettingsGUI
         DrawAdditionalSlots();
         GUILayout.Space(6);
         DrawSection(Loc("comms/mode_work_train", "Work Trains"), groups.Where(g => !g.isDemonstrator));
+        GUILayout.Space(6);
+        DrawAdditionalGarages();
     }
 
     private static void DrawSaveGuardNotice(UnityModManager.ModEntry entry)
@@ -118,14 +122,15 @@ internal static class SettingsGUI
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label("Garage changes are not in effect for this save because its garage settings differ "
                 + "from the ones it was created with.");
-            if (GUILayout.Button("Adopt this save's garages", GUILayout.Width(360)))
+            if (GUILayout.Button("Adopt this save's settings", GUILayout.Width(360)))
                 Adopt(entry, SaveGuard.AdoptGarages);
             GUILayout.Label("Your garage settings will be changed to match what this save was configured with.");
             GUILayout.Space(4);
-            if (GUILayout.Button("Force respawn garages", GUILayout.Width(360)))
+            if (GUILayout.Button("Apply settings to this save", GUILayout.Width(360)))
                 SaveGuard.ForceApplyGarages();
             GUILayout.Label("Each opened garage respawns your chosen replacement. Cars you've already removed from an "
-                + "unlocked garage are kept as owned by your player but will no longer be summonable by the comms radio.");
+                + "unlocked garage are kept as owned by your player but will no longer be summonable by the comms radio. "
+                + "Garages you have added are built, moved or removed in the same way.");
             GUILayout.EndVertical();
             GUILayout.Space(6);
         }
@@ -136,7 +141,7 @@ internal static class SettingsGUI
         adopt();
         _priceText.Clear();
         _openPickerFor = _openCargoPickerFor = _openTenderPickerFor = _openExtraPickerFor = null;
-        _openAdditionalPicker = false;
+        _openAdditionalPicker = _openAdditionalGaragePicker = false;
         Main.Settings.Save(entry);
     }
 
@@ -180,11 +185,16 @@ internal static class SettingsGUI
                 if (kind == SlotKind.Demonstrator)
                 {
                     DrawDemonstratorRows(livery.id, Main.Settings.GetReplacement(livery) ?? livery,
-                        VanillaGarages.OriginalTender(garage));
+                        VanillaGarages.OriginalTender(garage),
+                        garage.id, VanillaGarages.OriginalSummonPrice(garage));
                 }
             }
             if (!isDemonstrator)
-                DrawGarageExtras(garage);
+            {
+                DrawGarageExtras(garage.id);
+                DrawSummonPriceRow(garage.id, GarageLiveries.PrimaryFor(garage),
+                    VanillaGarages.OriginalSummonPrice(garage));
+            }
         }
         GUILayout.Space(2);
         GUILayout.EndVertical();
@@ -233,11 +243,12 @@ internal static class SettingsGUI
             SearchPicker.Draw(ReplacementKey(livery.id), ReplacementOptions(livery, kind));
     }
 
-    private static void DrawDemonstratorRows(string slotId, TrainCarLivery effectiveLoco, TrainCarLivery? originalTender)
+    private static void DrawDemonstratorRows(string slotId, TrainCarLivery effectiveLoco,
+        TrainCarLivery? originalTender, string garageId, float fallbackSummonPrice)
     {
         DrawTenderRow(slotId, originalTender);
         if (Main.Settings.ShowAdvanced)
-            DrawDemonstratorExtras(slotId, effectiveLoco);
+            DrawDemonstratorExtras(slotId, effectiveLoco, garageId, fallbackSummonPrice);
         GUILayout.Space(4);
     }
 
@@ -258,7 +269,8 @@ internal static class SettingsGUI
             SearchPicker.Draw(TenderKey(slotId), TenderOptions(slotId, originalTender));
     }
 
-    private static void DrawDemonstratorExtras(string slotId, TrainCarLivery effectiveLoco)
+    private static void DrawDemonstratorExtras(string slotId, TrainCarLivery effectiveLoco,
+        string garageId, float fallbackSummonPrice)
     {
         GUILayout.BeginHorizontal();
         SubRowHeader("Parts cargo:");
@@ -292,12 +304,15 @@ internal static class SettingsGUI
         GUILayout.Label($"default: ${installPrice}");
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
+
+        // What the radio charges once the restoration is finished and the loco can be summoned.
+        DrawSummonPriceRow(garageId, effectiveLoco, fallbackSummonPrice);
     }
 
     // Extra cars appended to the spawned consist beyond the default car.
-    private static void DrawGarageExtras(GarageType_v2 garage)
+    private static void DrawGarageExtras(string garageId)
     {
-        foreach (var id in Main.Settings.GetExtraCars(garage.id).ToList())
+        foreach (var id in Main.Settings.GetExtraCars(garageId).ToList())
         {
             var lv = GetLiveryById(id);
             string name = lv != null ? Loc(lv.localizationKey, lv.id) : $"? {id}";
@@ -305,30 +320,31 @@ internal static class SettingsGUI
             SubRowHeader($"+ {name}");
             GUILayout.Label($"[{id}]", GUILayout.Width(ControlWidth));
             if (GUILayout.Button("Remove", GUILayout.Width(70)))
-                Main.Settings.RemoveExtraCar(garage.id, id);
+                Main.Settings.RemoveExtraCar(garageId, id);
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
         }
 
-        bool open = _openExtraPickerFor == garage.id;
+        bool open = _openExtraPickerFor == garageId;
         GUILayout.BeginHorizontal();
         SubRowHeader("");
         if (GUILayout.Button(open ? "Add car ▲" : "Add car ▼", GUILayout.Width(140)))
         {
-            _openExtraPickerFor = open ? null : garage.id;
-            SearchPicker.Reset(ExtraKey(garage.id));
+            _openExtraPickerFor = open ? null : garageId;
+            SearchPicker.Reset(ExtraKey(garageId));
         }
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
 
         if (open)
-            SearchPicker.Draw(ExtraKey(garage.id), ExtraCarOptions(garage));
+            SearchPicker.Draw(ExtraKey(garageId), ExtraCarOptions(garageId));
         GUILayout.Space(4);
     }
 
     private const string AdditionalSlotsText =
-        "Extra museum demonstrators, each restored and unlocked on its own. Changes apply when the save is "
-        + "next loaded, or straight away with the force respawn button above.\n\n"
+        "Extra museum demonstrators, each restored and unlocked on its own. They are written into a save "
+        + "on creation. Adding, removing or changing one afterwards does nothing to an existing save "
+        + "until you press the apply button above.\n\n"
         + "Each slot is given one of the museum's empty roundhouse stalls, which caps how many you can add.";
 
     private static void DrawAdditionalSlots()
@@ -361,7 +377,8 @@ internal static class SettingsGUI
 
             if (!hasStall) DrawHomeRow(slot);
             if (loco != null)
-                DrawDemonstratorRows(slot.LocoId, loco, null);
+                DrawDemonstratorRows(slot.LocoId, loco, null,
+                    SlotTypes.SlotGarageId(slot.LocoId), VanillaGarages.DefaultDemonstratorSummonPrice());
         }
 
         DrawAddSlotRow();
@@ -399,7 +416,7 @@ internal static class SettingsGUI
                 if (!overridden) _openAdditionalPicker = false;
             }
             GUILayout.Label("Slots added past the museum's free stalls have to be given a track by hand, "
-                + "standing on it in game. Be aware that this can cause all manner of bugs if the track you "
+                + "standing on it in game. Be aware that this can cause spawn collisions if the track you "
                 + "assign the demonstrator to has other spawns assigned to it.");
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
@@ -409,48 +426,151 @@ internal static class SettingsGUI
             SearchPicker.Draw(AdditionalKey, AdditionalSlotOptions());
     }
 
-    private static void DrawHomeRow(Settings.AdditionalSlot slot)
+    private static void DrawHomeRow(Settings.AdditionalSlot slot) =>
+        DrawPlacementRow($"slot:{slot.LocoId}",
+            DemonstratorSlots.Template()?.garageSpawner?.locoSpawnPoint?.transform,
+            slot.Home, "No stall left in the musuem, place the home by hand to progress the restoration",
+            (home, yaw) => Main.Settings.SetAdditionalSlotHome(slot.LocoId, home, yaw));
+
+    private static void DrawPlacementRow(
+        string key, Transform? anchor, Vector3? home, string unplacedLabel, System.Action<Vector3?, float> set)
     {
-        var anchor = DemonstratorSlots.Template()?.garageSpawner?.locoSpawnPoint?.transform;
         var player = PlayerManager.PlayerTransform;
 
         GUILayout.BeginHorizontal();
         SubRowHeader("Placement:");
-        GUILayout.Label(PlacementLabel(slot, anchor), GUILayout.Width(ControlWidth));
+        GUILayout.Label(PlacementLabel(key, home, anchor, unplacedLabel), GUILayout.Width(ControlWidth));
 
         if (anchor != null && player != null
             && GUILayout.Button("Set to where I'm standing", GUILayout.Width(190)))
         {
-            Main.Settings.SetAdditionalSlotHome(slot.LocoId,
-                anchor.InverseTransformPoint(player.position),
+            set(anchor.InverseTransformPoint(player.position),
                 Quaternion.Inverse(anchor.rotation).eulerAngles.y + player.eulerAngles.y);
         }
 
-        if (slot.Home.HasValue && GUILayout.Button("Clear", GUILayout.Width(50)))
-            Main.Settings.SetAdditionalSlotHome(slot.LocoId, null, 0f);
+        if (home.HasValue && GUILayout.Button("Clear", GUILayout.Width(50)))
+            set(null, 0f);
 
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
     }
 
-    private static string PlacementLabel(Settings.AdditionalSlot slot, Transform? anchor)
+    private static string PlacementLabel(string key, Vector3? home, Transform? anchor, string unplacedLabel)
     {
-        if (!slot.Home.HasValue) return "No stall left — place it by hand";
+        if (home is not Vector3 offset) return unplacedLabel;
         if (anchor == null) return "Placed by hand";
-        return PlacedTrack(slot, anchor) ?? "Placed by hand — no track nearby";
+        return PlacedTrack(key, offset, anchor) ?? "Placed by hand but no track nearby";
     }
 
     // Resolving a placement searches every track in the world, so we cache after it is placed
     private static readonly Dictionary<string, (Vector3 home, string? track)> _placedTracks = [];
 
-    private static string? PlacedTrack(Settings.AdditionalSlot slot, Transform anchor)
+    private static string? PlacedTrack(string key, Vector3 home, Transform anchor)
     {
-        if (slot.Home is not Vector3 home) return null;
-        if (_placedTracks.TryGetValue(slot.LocoId, out var cached) && cached.home == home) return cached.track;
+        if (_placedTracks.TryGetValue(key, out var cached) && cached.home == home) return cached.track;
 
         var track = SlotScene.TrackNameAt(anchor.TransformPoint(home));
-        _placedTracks[slot.LocoId] = (home, track);
+        _placedTracks[key] = (home, track);
         return track;
+    }
+
+    private const string AdditionalGaragesText =
+        "Hand-placed work train \"garages\", each spawning its consist wherever you place it in the world and "
+        + "\"opening\" when the license its first car needs is bought. They are written into a save "
+        + "on creation. Adding, removing or changing one afterwards does nothing to an existing save "
+        + "until you press the apply button above.";
+
+    private static void DrawAdditionalGarages()
+    {
+        GUILayout.Label("Additional garages", new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold });
+        GUILayout.BeginVertical(GUI.skin.box);
+        GUILayout.Label(AdditionalGaragesText);
+        GUILayout.Space(4);
+
+        DrawAllowGaragesToggle();
+
+        foreach (var garage in Main.Settings.AdditionalGarages.ToList())
+        {
+            var primary = GetLiveryById(garage.PrimaryId);
+            string name = primary != null ? Loc(primary.localizationKey, primary.id) : $"? {garage.PrimaryId}";
+
+            GUILayout.BeginHorizontal();
+            RowHeader(name, "");
+            GUILayout.Label($"[{garage.PrimaryId}]", GUILayout.Width(ControlWidth));
+            bool remove = GUILayout.Button("Remove", GUILayout.Width(70));
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            if (remove)
+            {
+                Main.Settings.RemoveAdditionalGarage(garage.PrimaryId);
+                continue;
+            }
+
+            var chosen = garage;
+            DrawPlacementRow($"garage:{chosen.PrimaryId}", GarageHomes.Anchor(), chosen.Home,
+                "Not yet placed",
+                (home, yaw) => Main.Settings.SetAdditionalGarageHome(chosen.PrimaryId, home, yaw));
+            DrawGarageExtras(SlotTypes.WorkGarageId(chosen.PrimaryId));
+            DrawSummonPriceRow(SlotTypes.WorkGarageId(chosen.PrimaryId), primary,
+                VanillaGarages.DefaultSummonPrice());
+            GUILayout.Space(4);
+        }
+
+        DrawAddGarageRow();
+
+        GUILayout.EndVertical();
+    }
+
+    private static void DrawAllowGaragesToggle()
+    {
+        GUILayout.BeginHorizontal();
+        bool allowed = GUILayout.Toggle(Main.Settings.AllowAdditionalGarages,
+            " Add garages of my own", GUILayout.Width(200));
+        if (allowed != Main.Settings.AllowAdditionalGarages)
+        {
+            Main.Settings.AllowAdditionalGarages = allowed;
+            if (!allowed) _openAdditionalGaragePicker = false;
+        }
+        GUILayout.Label("A garage you add has no building to live in, so you have to give it a spot by hand, "
+            + "standing where you want it in game. Be aware that this can cause spawn collisions if the "
+            + "track you put it on has other spawns assigned to it.");
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+        GUILayout.Space(4);
+    }
+
+    private static void DrawAddGarageRow()
+    {
+        GUILayout.BeginHorizontal();
+        bool open = _openAdditionalGaragePicker;
+        GUI.enabled = Main.Settings.AllowAdditionalGarages;
+        if (GUILayout.Button(open ? "Add garage ▲" : "Add garage ▼", GUILayout.Width(180)))
+        {
+            _openAdditionalGaragePicker = !open;
+            SearchPicker.Reset(AdditionalGarageKey);
+        }
+        GUI.enabled = true;
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+
+        if (_openAdditionalGaragePicker && Main.Settings.AllowAdditionalGarages)
+            SearchPicker.Draw(AdditionalGarageKey, AdditionalGarageOptions());
+    }
+
+    private static IEnumerable<SearchPicker.Option> AdditionalGarageOptions()
+    {
+        foreach (var candidate in _candidateLiveries!)
+        {
+            if (!SlotChoices.CanBeAdditionalGarage(candidate)) continue;
+
+            var chosen = candidate;
+            yield return new(Loc(chosen.localizationKey, chosen.id), chosen.id, () =>
+            {
+                Main.Settings.AddAdditionalGarage(chosen.id);
+                _openAdditionalGaragePicker = false;
+            });
+        }
     }
 
     private static IEnumerable<SearchPicker.Option> AdditionalSlotOptions()
@@ -468,7 +588,7 @@ internal static class SettingsGUI
         }
     }
 
-    private static IEnumerable<SearchPicker.Option> ExtraCarOptions(GarageType_v2 garage)
+    private static IEnumerable<SearchPicker.Option> ExtraCarOptions(string garageId)
     {
         foreach (var candidate in _candidateLiveries!)
         {
@@ -477,7 +597,7 @@ internal static class SettingsGUI
             var chosen = candidate;
             yield return new(Loc(chosen.localizationKey, chosen.id), chosen.id, () =>
             {
-                Main.Settings.AddExtraCar(garage.id, chosen.id);
+                Main.Settings.AddExtraCar(garageId, chosen.id);
                 _openExtraPickerFor = null;
             });
         }
@@ -556,6 +676,31 @@ internal static class SettingsGUI
                 _openCargoPickerFor = null;
             });
         }
+    }
+
+    // What the comms radio charges to summon a car.
+    private static void DrawSummonPriceRow(string garageId, TrainCarLivery? primary, float fallback)
+    {
+        if (!Main.Settings.ShowAdvanced) return;
+
+        var authored = CustomCarLoaderHelper.SummonPriceFor(primary);
+        float defaultPrice = GarageLiveries.DefaultSummonPrice(primary, fallback);
+        string source = authored.HasValue ? " (set by the mod's author)" : "";
+
+        GUILayout.BeginHorizontal();
+        SubRowHeader("Summon price:");
+        DrawPriceField($"{garageId}:summon", Main.Settings.GetSummonPrice(garageId),
+            v => Main.Settings.SetSummonPrice(garageId, v));
+        GUILayout.Label($"default: ${defaultPrice:0}{source}{SummonCapNote()}");
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+        GUILayout.Space(4);
+    }
+
+    private static string SummonCapNote()
+    {
+        var cap = Globals.G?.GameParams?.WorkTrainSummonMaxPrice;
+        return cap is float max ? $", capped at ${max:0} by your difficulty" : "";
     }
 
     private static void DrawPriceField(string fieldKey, float? current, System.Action<float?> set)

@@ -31,7 +31,7 @@ internal static class SaveGuard
     internal static bool AllowGarageChanges()
     {
         if (_allowGarage.HasValue) return _allowGarage.Value;
-        bool result = Decide(_forcedGarage, GarageFingerprintKey, GarageFingerprint, null, out bool undecided);
+        bool result = Decide(_forcedGarage, GarageFingerprintKey, GarageFingerprint, GaragePlacementsPreserved, out bool undecided);
         if (!undecided) _allowGarage = result;
         return result;
     }
@@ -73,6 +73,18 @@ internal static class SaveGuard
         return true;
     }
 
+    // Same rule for the garages this mod adds, against their own record of where each one stands.
+    private static bool GaragePlacementsPreserved()
+    {
+        foreach (var garage in Main.Settings.AdditionalGarages)
+        {
+            if (string.IsNullOrEmpty(garage.PrimaryId)) continue;
+            if (GarageHomes.WouldErasePlacement(SlotTypes.WorkGarageId(garage.PrimaryId), garage.Home))
+                return false;
+        }
+        return true;
+    }
+
     // The fingerprint the save was last saved with or null if the mod never touched this save
     internal static string? StoredDemonstratorFingerprint => ReadStored(DemonstratorFingerprintKey);
     internal static string? StoredGarageFingerprint => ReadStored(GarageFingerprintKey);
@@ -84,7 +96,7 @@ internal static class SaveGuard
     }
 
     internal static bool IsDemonstratorOutOfSync => OutOfSync(DemonstratorFingerprintKey, DemonstratorFingerprint, PlacementsPreserved);
-    internal static bool IsGarageOutOfSync => OutOfSync(GarageFingerprintKey, GarageFingerprint);
+    internal static bool IsGarageOutOfSync => OutOfSync(GarageFingerprintKey, GarageFingerprint, GaragePlacementsPreserved);
 
     private static bool OutOfSync(string key, Func<string> fingerprint, Func<bool>? alsoInSync = null)
     {
@@ -123,6 +135,7 @@ internal static class SaveGuard
         AllowGarageChanges();
         GarageLiveries.Apply();
         WorkTrainGarages.ReinitializeAll();
+        AddedGarages.Reconcile();
         CommsRadioRefresher.Refresh();
         ForceApplyEvents.RaiseApplied(ForceApplyKind.Garages);
     }
@@ -204,6 +217,13 @@ internal static class SaveGuard
             entries.Add((garage.id,
                 liveries.Select(SlotChoices.CurrentSpawnId).ToList(),
                 Main.Settings.GetExtraCars(garage.id)));
+        }
+
+        foreach (var added in Main.Settings.AdditionalGarages.OrderBy(g => g.PrimaryId, StringComparer.Ordinal))
+        {
+            if (string.IsNullOrEmpty(added.PrimaryId)) continue;
+            var garageId = SlotTypes.WorkGarageId(added.PrimaryId);
+            entries.Add((garageId, [added.PrimaryId], Main.Settings.GetExtraCars(garageId)));
         }
         return SaveConfig.SerializeGarages(entries);
     }

@@ -68,6 +68,7 @@ internal static class SaveAdoption
             }
         }
 
+        AdoptAdditionalGarages(baked, claimed);
         ReleaseDemonstratorClaims(claimed);
 
         // The utility flatcar is one of these garages, so the save's may not carry the parts cargos the
@@ -124,6 +125,54 @@ internal static class SaveAdoption
             Main.Settings.OverrideSlotLimit = true;
     }
 
+    // The garages this mod adds are the baked entries whose ids it made up.
+    private static void AdoptAdditionalGarages(
+        Dictionary<string, (List<string> SpawnIds, List<string> Extras)>? baked, HashSet<string> claimed)
+    {
+        var wanted = new Dictionary<string, (string PrimaryId, List<string> Extras)>(StringComparer.Ordinal);
+        foreach (var entry in baked ?? [])
+        {
+            if (!SlotTypes.IsWorkGarageId(entry.Key)) continue;
+            var primaryId = entry.Value.SpawnIds.FirstOrDefault();
+            if (string.IsNullOrEmpty(primaryId)) continue;
+            wanted[entry.Key] = (primaryId!, entry.Value.Extras);
+        }
+
+        foreach (var garage in Main.Settings.AdditionalGarages.ToList())
+        {
+            if (!wanted.ContainsKey(SlotTypes.WorkGarageId(garage.PrimaryId)))
+                Main.Settings.RemoveAdditionalGarage(garage.PrimaryId);
+        }
+
+        foreach (var kv in wanted)
+        {
+            var (garageId, (primaryId, extras)) = (kv.Key, kv.Value);
+
+            // A garage adopted back unchanged keeps what it already had
+            Main.Settings.AddAdditionalGarage(primaryId);
+            Main.Settings.ClearExtraCars(garageId);
+            claimed.Add(primaryId);
+            foreach (var extra in extras)
+            {
+                Main.Settings.AddExtraCar(garageId, extra);
+                claimed.Add(extra);
+            }
+
+            AdoptGaragePlacement(garageId, primaryId);
+        }
+
+        // Garages of this mod's own is a configuration only the opt-in checkbox can produce
+        if (Main.Settings.AdditionalGarages.Count > 0) Main.Settings.AllowAdditionalGarages = true;
+    }
+
+    private static void AdoptGaragePlacement(string garageId, string primaryId)
+    {
+        if (GarageHomes.PlacementFor(garageId) is (Vector3 offset, float yaw))
+            Main.Settings.SetAdditionalGarageHome(primaryId, offset, yaw);
+        else
+            Main.Settings.SetAdditionalGarageHome(primaryId, null, 0f);
+    }
+
     private static void AdoptPlacement(string locoId)
     {
         if (MuseumStalls.PlacementFor(locoId) is (Vector3 offset, float yaw))
@@ -158,6 +207,24 @@ internal static class SaveAdoption
                     + "this save's demonstrators spawn it.");
                 Main.Settings.RemoveExtraCar(garage.id, extra);
             }
+        }
+
+        foreach (var added in Main.Settings.AdditionalGarages.ToList())
+        {
+            var garageId = SlotTypes.WorkGarageId(added.PrimaryId);
+
+            foreach (var extra in Main.Settings.GetExtraCars(garageId).ToList())
+            {
+                if (!claimed.Contains(extra)) continue;
+                Main.Logger.Warning($"Additional garage {added.PrimaryId} gave up its extra car {extra}: "
+                    + "this save's demonstrators spawn it.");
+                Main.Settings.RemoveExtraCar(garageId, extra);
+            }
+
+            if (!claimed.Contains(added.PrimaryId)) continue;
+            Main.Logger.Warning($"Additional garage {added.PrimaryId} was dropped: "
+                + "this save's demonstrators spawn that car.");
+            Main.Settings.RemoveAdditionalGarage(added.PrimaryId);
         }
     }
 

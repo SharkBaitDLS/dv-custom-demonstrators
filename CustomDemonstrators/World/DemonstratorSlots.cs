@@ -123,6 +123,11 @@ internal static class DemonstratorSlots
             Main.Logger.Warning("No vanilla demonstrator to use as a template; new demonstrator slots were skipped.");
         }
 
+        foreach (var slot in _slots.Values)
+        {
+            GarageLiveries.ApplySummonPrice(slot.Garage, VanillaGarages.DefaultDemonstratorSummonPrice());
+        }
+
         if (changed) types.RecalculateCaches();
     }
 
@@ -153,6 +158,7 @@ internal static class DemonstratorSlots
         }
 
         var garage = SlotTypes.GetOrCreateGarage(locoId, loco, tender, template.garageSpawner.garageType);
+        GarageLiveries.ApplySummonPrice(garage, VanillaGarages.DefaultDemonstratorSummonPrice());
         types.garages.Add(garage);
         SlotTypes.AllowSummoning(garage);
 

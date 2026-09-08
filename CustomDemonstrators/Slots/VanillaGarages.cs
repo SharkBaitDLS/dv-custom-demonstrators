@@ -36,6 +36,9 @@ internal static class VanillaGarages
     // live game data.
     private static readonly Dictionary<GarageType_v2, TrainCarLivery[]> _originals = [];
 
+    // The summon price each garage shipped with, so clearing an override puts the game's own back.
+    private static readonly Dictionary<GarageType_v2, float> _originalPrices = [];
+
     private static List<(GarageType_v2 garage, bool isDemonstrator, List<TrainCarLivery> liveries)>? _groups;
 
     internal static void EnsureSnapshot()
@@ -46,6 +49,7 @@ internal static class VanillaGarages
         {
             if (garage?.garageCarLiveries == null || _originals.ContainsKey(garage)) continue;
             _originals[garage] = (TrainCarLivery[])garage.garageCarLiveries.Clone();
+            _originalPrices[garage] = garage.summonPrice;
         }
     }
 
@@ -53,6 +57,28 @@ internal static class VanillaGarages
     {
         EnsureSnapshot();
         return _originals.TryGetValue(garage, out var o) ? o : garage.garageCarLiveries ?? [];
+    }
+
+    internal static float OriginalSummonPrice(GarageType_v2 garage)
+    {
+        EnsureSnapshot();
+        return _originalPrices.TryGetValue(garage, out var price) ? price : garage.summonPrice;
+    }
+
+    // What a garage of this mod's own charges before any override: whatever the game's first garage of the
+    // same kind charges. Read from the game's data rather than from whichever garage or controller happened
+    // to serve as the build template, so the menu and the built garage can't disagree.
+    internal static float DefaultSummonPrice() => FirstSummonPrice(demonstrator: false);
+
+    internal static float DefaultDemonstratorSummonPrice() => FirstSummonPrice(demonstrator: true);
+
+    private static float FirstSummonPrice(bool demonstrator)
+    {
+        foreach (var (garage, isDemonstrator, _) in Groups)
+        {
+            if (isDemonstrator == demonstrator) return OriginalSummonPrice(garage);
+        }
+        return 0f;
     }
 
     internal static TrainCarLivery? PrimaryLoco(GarageType_v2 garage)
@@ -84,9 +110,9 @@ internal static class VanillaGarages
         foreach (var garage in garages)
         {
             if (garage == null || garage.v1 == Garage.NotSet) continue;
-            // Slots this mod creates are configured from their own settings list, not as rows built from
+            // Garages this mod creates are configured from their own settings list, not as rows built from
             // game data, so they never take part in the replacement grouping.
-            if (SlotTypes.IsSlotGarage(garage)) continue;
+            if (SlotTypes.IsAdded(garage)) continue;
             bool demonstrator = IsDemonstrator(garage.v1);
 
             List<TrainCarLivery> liveries;

@@ -20,18 +20,30 @@ internal static class GarageLiveries
         foreach (var garage in types.garages)
         {
             if (garage == null) continue;
-            // Custom demonstrator garages are already set up correctly
-            if (SlotTypes.IsSlotGarage(garage)) continue;
+            if (SlotTypes.IsAdded(garage)) continue;
             var desired = DesiredLiveries(garage);
             if (garage.garageCarLiveries == null || !garage.garageCarLiveries.SequenceEqual(desired))
             {
                 garage.garageCarLiveries = desired;
                 changed = true;
             }
+
+            ApplySummonPrice(garage, desired.FirstOrDefault(), VanillaGarages.OriginalSummonPrice(garage));
         }
 
         if (changed) types.RecalculateCaches();
     }
+
+    internal static void ApplySummonPrice(GarageType_v2 garage, float fallback) =>
+        ApplySummonPrice(garage, garage.garageCarLiveries?.FirstOrDefault(), fallback);
+
+    internal static void ApplySummonPrice(GarageType_v2 garage, TrainCarLivery? primary, float fallback) =>
+        garage.summonPrice = Main.Settings.GetSummonPrice(garage.id) ?? DefaultSummonPrice(primary, fallback);
+
+    internal static float DefaultSummonPrice(TrainCarLivery? primary, float fallback) =>
+        CustomCarLoaderHelper.SummonPriceFor(primary) ?? fallback;
+
+    internal static TrainCarLivery? PrimaryFor(GarageType_v2 garage) => DesiredLiveries(garage).FirstOrDefault();
 
     // The liveries a garage should spawn after overrides. A normal garage just does a simple replace.
     // A demonstrator garage is rebuilt from its primary loco plus its resolved tender if any.

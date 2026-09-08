@@ -26,7 +26,7 @@ internal static class WorkTrainGarages
     private static GarageCarSpawner? SpawnerFor(GarageType_v2 garage) =>
         GarageCarSpawner.Spawners.Values.FirstOrDefault(s => s.garageType == garage);
 
-    private static void Reconcile(GarageCarSpawner spawner)
+    internal static void Reconcile(GarageCarSpawner spawner)
     {
         var desired = spawner.GarageCarLiveries;
         if (desired == null) return;
@@ -82,6 +82,8 @@ internal static class WorkTrainGarages
 
         spawner.garageCars = rebuilt;
 
+        AdoptStrayCars(spawner);
+
         if (!GarageUnlocks.IsSpawningAllowed(spawner))
         {
             Main.Logger.Log($"Garage {spawner.garageType.id} is still locked, so its new consist stays "
@@ -112,10 +114,49 @@ internal static class WorkTrainGarages
         Main.Logger.Log($"Garage respawn after clearing blockers spawned {spawned?.Count ?? 0} car(s).");
     }
 
+    internal static void AdoptStrayCars(GarageCarSpawner? spawner)
+    {
+        var liveries = spawner?.GarageCarLiveries;
+        if (spawner == null || liveries == null) return;
+
+        var all = SingletonBehaviour<CarSpawner>.Instance?.AllCars;
+        if (all == null) return;
+
+        foreach (var car in all.ToList())
+        {
+            // Grab only unique cars. Either orphaned garage cars, or demonstrators whose restoration was completed
+            // but then removed from their slot.
+            if (car == null || !car.uniqueCar) continue;
+            if (!liveries.Contains(car.carLivery)) continue;
+            if (spawner.GetCar(car.carLivery) != null) continue;
+            if (IsHeldByAGarage(car)) continue;
+
+            Main.Logger.Log($"Garage {spawner.garageType.id} took on {car.carLivery.id} [{car.ID}], which was "
+                + "already in the world, rather than spawning a second one.");
+            spawner.OverrideSpawnedCarReference(car);
+        }
+    }
+
+    private static bool IsHeldByAGarage(TrainCar car) =>
+        GarageCarSpawner.Spawners.Values.Any(s => s != null && s.garageCars != null && s.garageCars.Contains(car));
+
+    internal static void ReleaseCars(GarageCarSpawner? spawner)
+    {
+        if (spawner == null) return;
+        foreach (var car in spawner.garageCars ?? [])
+        {
+            if (car == null) continue;
+            UnparentGarageCar(car, spawner);
+        }
+        spawner.garageCars = new TrainCar[spawner.GarageCarLiveries?.Length ?? 0];
+    }
+
     private static void UnparentGarageCar(TrainCar car, GarageCarSpawner spawner)
     {
         var home = car.GetComponent<HomeGarageReference>();
-        if (home != null) UnityEngine.Object.Destroy(home);
+        // Immediately, because a garage taking this car on in the same frame would otherwise find the old
+        // reference still standing, hang its own spawner off it, and have Unity destroy it a moment later.
+        if (home != null) UnityEngine.Object.DestroyImmediate(home);
         car.OnDestroyCar -= CarLifecycle.DelegateFor<Action<TrainCar>>(spawner, "OnGarageCarDeleted");
     }
 

@@ -13,6 +13,7 @@ namespace CustomDemonstrators.World;
 internal static class SlotTypes
 {
     internal const string GarageIdPrefix = "CustomDemonstrators_garage_";
+    internal const string WorkGarageIdPrefix = "CustomDemonstrators_workgarage_";
     internal const string CargoIdPrefix = "CustomDemonstrators_parts_";
 
     private const int SyntheticV1Base = 30000;
@@ -31,6 +32,23 @@ internal static class SlotTypes
     internal static bool IsSlotGarage(GarageType_v2? garage) =>
         garage != null && garage.id.StartsWith(GarageIdPrefix, StringComparison.Ordinal);
 
+    internal static bool IsWorkGarage(GarageType_v2? garage) =>
+        garage != null && garage.id.StartsWith(WorkGarageIdPrefix, StringComparison.Ordinal);
+
+    internal static bool IsAdded(GarageType_v2? garage) => IsSlotGarage(garage) || IsWorkGarage(garage);
+
+    internal static bool IsAddedId(string? garageId) =>
+        garageId != null
+        && (garageId.StartsWith(GarageIdPrefix, StringComparison.Ordinal)
+            || IsWorkGarageId(garageId));
+
+    internal static bool IsWorkGarageId(string? garageId) =>
+        garageId != null && garageId.StartsWith(WorkGarageIdPrefix, StringComparison.Ordinal);
+
+    internal static string WorkGarageId(string primaryId) => WorkGarageIdPrefix + primaryId;
+
+    internal static string SlotGarageId(string locoId) => GarageIdPrefix + locoId;
+
     internal static bool IsSlotCargo(CargoType_v2? cargo) =>
         cargo != null && cargo.id.StartsWith(CargoIdPrefix, StringComparison.Ordinal);
 
@@ -44,24 +62,32 @@ internal static class SlotTypes
     }
 
     internal static GarageType_v2 GetOrCreateGarage(
-        string locoId, TrainCarLivery loco, TrainCarLivery? tender, GarageType_v2 template)
+        string locoId, TrainCarLivery loco, TrainCarLivery? tender, GarageType_v2 template) =>
+        GetOrCreate(SlotGarageId(locoId), tender != null ? [loco, tender] : [loco], template);
+
+    internal static GarageType_v2 GetOrCreateWorkGarage(
+        string primaryId, TrainCarLivery[] liveries, GarageType_v2 template) =>
+        GetOrCreate(WorkGarageId(primaryId), liveries, template);
+
+    private static GarageType_v2 GetOrCreate(
+        string garageId, TrainCarLivery[] liveries, GarageType_v2 template)
     {
-        if (!_garageCache.TryGetValue(locoId, out var garage) || garage == null)
+        if (!_garageCache.TryGetValue(garageId, out var garage) || garage == null)
         {
             garage = ScriptableObject.CreateInstance<GarageType_v2>();
-            garage.name = garage.id = GarageIdPrefix + locoId;
+            garage.name = garage.id = garageId;
             // Unlocked garages are saved as id strings, so this number only has to be unique right now.
             garage.v1 = (Garage)FreeV1([
                 .. Globals.G!.Types.garages.Select(g => (int)g.v1),
                 .. _garageCache.Values.Where(g => g != null).Select(g => (int)g.v1),
             ]);
-            _garageCache[locoId] = garage;
+            _garageCache[garageId] = garage;
         }
 
-        // Named after the loco rather than the template so unlock messages and the radio read sensibly.
-        garage.localizationKey = loco.localizationKey;
+        // Named after its first car rather than the template so unlock messages and the radio read sensibly.
+        garage.localizationKey = liveries[0].localizationKey;
         garage.summonPrice = template.summonPrice;
-        garage.garageCarLiveries = tender != null ? [loco, tender] : [loco];
+        garage.garageCarLiveries = liveries;
         FreeRoamField?.SetValue(garage, FreeRoamField.GetValue(template));
         return garage;
     }

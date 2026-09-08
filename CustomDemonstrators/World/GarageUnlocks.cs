@@ -15,6 +15,12 @@ internal static class GarageUnlocks
     private static readonly FieldInfo? UnsavedChanges =
         AccessTools.Field(typeof(LicenseManager), "unsavedChanges");
 
+    internal static void Unlock(GarageType_v2? garage)
+    {
+        if (garage == null) return;
+        Manager()?.UnlockGarage(garage);
+    }
+
     internal static void Revoke(GarageType_v2? garage, string? reason = null)
     {
         if (garage == null) return;
