@@ -18,7 +18,7 @@ internal static class SettingsGUI
 {
     // TODO: localize? We do have Localization Helper in scope but I'm wary of machine translations.
     private const string NoReplacementLabel = "(default — no replacement)";
-    private const string AutoCargoLabel = "Auto-detect";
+    private const string DefaultCargoLabel = "(default)";
     private const string GenericCrateLabel = "Generic parts crate";
     private const string DefaultTenderLabel = "Default";
 
@@ -288,15 +288,15 @@ internal static class SettingsGUI
 
         if (open) SearchPicker.Draw(CargoKey(slotId), CargoOptions(slotId));
 
-        // TODO: pull these from CCL metadata once that exists
-        float partsPrice = 15000.00f;
-        float installPrice = 10000.00f;
+        var authoredOrder = CustomCarLoaderHelper.PartsOrderPriceFor(effectiveLoco);
+        var authoredInstall = CustomCarLoaderHelper.PartsInstallPriceFor(effectiveLoco);
+        var original = DemonstratorSetup.OriginalPartsPrices(slotId);
 
         GUILayout.BeginHorizontal();
         SubRowHeader("Order price:");
         DrawPriceField($"{slotId}:order", Main.Settings.GetOrderPrice(slotId),
             v => Main.Settings.SetOrderPrice(slotId, v));
-        GUILayout.Label($"default: ${partsPrice}");
+        GUILayout.Label(DefaultPriceNote(authoredOrder, original?.Order));
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
 
@@ -304,7 +304,7 @@ internal static class SettingsGUI
         SubRowHeader("Install price:");
         DrawPriceField($"{slotId}:install", Main.Settings.GetInstallPrice(slotId),
             v => Main.Settings.SetInstallPrice(slotId, v));
-        GUILayout.Label($"default: ${installPrice}");
+        GUILayout.Label(DefaultPriceNote(authoredInstall, original?.Install));
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
 
@@ -642,10 +642,9 @@ internal static class SettingsGUI
         var choice = Main.Settings.GetPartsCargoId(slotId);
         if (string.IsNullOrEmpty(choice))
         {
-            var suggestion = RestorationPartsCustomizer.FuzzyMatchPartsCargo(effectiveLoco);
-            return suggestion != null
-                ? $"{AutoCargoLabel} → {Loc(suggestion.localizationKeyFull, suggestion.id)}"
-                : $"{AutoCargoLabel} → generic crate";
+            return RestorationPartsCustomizer.HasAuthoredParts(effectiveLoco)
+                ? $"{DefaultCargoLabel} → set by the mod's author"
+                : $"{DefaultCargoLabel} → generic crate";
         }
         if (choice == RestorationPartsCustomizer.GenericCrateSentinel)
             return GenericCrateLabel;
@@ -655,7 +654,7 @@ internal static class SettingsGUI
 
     private static IEnumerable<SearchPicker.Option> CargoOptions(string slotId)
     {
-        yield return new(AutoCargoLabel, null, () =>
+        yield return new(DefaultCargoLabel, null, () =>
         {
             Main.Settings.SetPartsCargoId(slotId, null);
             _openCargoPickerFor = null;
@@ -702,6 +701,13 @@ internal static class SettingsGUI
         GUILayout.EndHorizontal();
         GUILayout.Space(4);
     }
+
+    // What the field will charge if left blank. Any CCL car answers from its own metadata, so the module
+    // price is only consulted for a slot still on its vanilla loco.
+    private static string DefaultPriceNote(float? authored, float? original) =>
+        authored.HasValue ? $"default: ${authored.Value:0} (set by the mod's author)"
+        : original.HasValue ? $"default: ${original.Value:0}"
+        : "default: set by the game";
 
     private static string SummonCapNote()
     {

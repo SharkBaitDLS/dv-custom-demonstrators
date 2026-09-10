@@ -100,6 +100,9 @@ internal static class DebugCheats
             sb.AppendLine($"  {(ours ? "[added]" : "[vanilla]")} {controller.SaveID}: {controller.State}"
                 + $", stall {controller.destinationTrackId}"
                 + $", parts {controller.locoPartCargo?.id}"
+                + $" ({controller.locoPartCargo?.massPerUnit ?? -1f:N0} kg/unit)"
+                + $", order ${controller.orderPartsModule?.price ?? -1f:N0}"
+                + $", install ${controller.installPartsModule?.price ?? -1f:N0}"
                 + $", tender {controller.secondCarLivery?.id ?? "none"}");
         }
 

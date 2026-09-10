@@ -56,12 +56,33 @@ internal static class DemonstratorSetup
         return false;
     }
 
+    // What each slot's quest modules charged before we touched them, for the settings GUI to show as the
+    // price a blank field will actually charge. Only a slot still on its vanilla loco ever needs this: any
+    // CCL car answers from its own metadata, whose price fields always carry a value. The game's six don't
+    // all charge the same, so there's no constant to use instead. Captured on the first pass over a slot,
+    // since every later one may be reading back a price we ourselves wrote.
+    private static readonly Dictionary<string, (float Order, float Install)> _originalPartsPrices = [];
+
+    internal static (float Order, float Install)? OriginalPartsPrices(string slotId) =>
+        _originalPartsPrices.TryGetValue(slotId, out var prices) ? prices : null;
+
+    private static void SnapshotPartsPrices(LocoRestorationController controller, string slotId)
+    {
+        if (string.IsNullOrEmpty(slotId) || _originalPartsPrices.ContainsKey(slotId)) return;
+        if (controller.orderPartsModule == null || controller.installPartsModule == null) return;
+
+        _originalPartsPrices[slotId] = (controller.orderPartsModule.price, controller.installPartsModule.price);
+    }
+
     internal static void ApplyTo(LocoRestorationController controller)
     {
         var loco = OriginalLoco(controller);
         var tender = OriginalTender(controller);
 
         string slotId = loco?.id ?? "";
+
+        // Before the early return, so a slot the mod leaves alone still reports what it charges.
+        SnapshotPartsPrices(controller, slotId);
 
         // Leave a save the mod never touched at its vanilla original
         if (!Resolve(loco, tender, slotId, out var replacementLoco, out var tenderId)) return;
@@ -110,12 +131,16 @@ internal static class DemonstratorSetup
                 controller.locoBlockerPrefab);
         }
 
-        // Price overrides. < 0 / unset = default.
-        var orderPrice = Main.Settings.GetOrderPrice(slotId);
+        // What the quest charges for the parts: the player's override first, then whatever the CCL author
+        // priced this loco's parts at, and failing both the module keeps the vanilla demonstrator's price.
+        // cargoLoco is the same "the CCL loco actually being restored, or null when this slot is vanilla"
+        // the parts cargo was built from, so a reverted slot keeps the game's own prices.
+        var orderPrice = Main.Settings.GetOrderPrice(slotId) ?? CustomCarLoaderHelper.PartsOrderPriceFor(cargoLoco);
         if (orderPrice.HasValue && controller.orderPartsModule != null)
             controller.orderPartsModule.price = orderPrice.Value;
 
-        var installPrice = Main.Settings.GetInstallPrice(slotId);
+        var installPrice = Main.Settings.GetInstallPrice(slotId)
+            ?? CustomCarLoaderHelper.PartsInstallPriceFor(cargoLoco);
         if (installPrice.HasValue && controller.installPartsModule != null)
             controller.installPartsModule.price = installPrice.Value;
     }

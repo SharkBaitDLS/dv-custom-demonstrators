@@ -181,8 +181,8 @@ public class Settings : UnityModManager.ModSettings
     internal void SetTenderId(string slotId, string? secondCarId) =>
         Mutate(slotId, o => o.TenderId = secondCarId);
 
-    // The configured parts-cargo choice for a demonstrator slot.
-    // The default of null triggers auto-detection on load.
+    // The configured parts-cargo choice for a demonstrator slot. The default of null uses whatever was
+    // supplied from CCL, or the generic crate prefab if one wasn't provided.
     internal string? GetPartsCargoId(string slotId) =>
         Demonstrators.TryGetValue(slotId, out var o) ? o.CargoId : null;
 

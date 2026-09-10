@@ -14,6 +14,7 @@ using DVLangHelper.Runtime;
 using HarmonyLib;
 using I2.Loc;
 using UnityEngine;
+using CCL.Types;
 using CustomDemonstrators.Saves;
 using CustomDemonstrators.Slots;
 
@@ -23,17 +24,23 @@ internal static class RestorationPartsCustomizer
 {
     // The pristine parts-cargo state per demonstrator SLOT (keyed by the original demonstrator loco id),
     // captured before we first customize. Keyed by slot (not controller) so the settings layer can revert
-    // it the moment an override changes — making the GUI's auto-detect row reflect it immediately, not
-    // only on respawn/reload.
-    private sealed class CargoSnapshot(CargoType_v2 cargo, string? fullKey, string? shortKey, GameObject[][] variants)
+    // it the moment an override changes, making the GUI's parts row reflect it immediately.
+    private sealed class CargoSnapshot(
+        CargoType_v2 cargo, string? fullKey, string? shortKey, float mass, GameObject[][] variants)
     {
         public readonly CargoType_v2 Cargo = cargo;
         public readonly string? FullKey = fullKey;
         public readonly string? ShortKey = shortKey;
+        public readonly float Mass = mass;
         public readonly GameObject[][] Variants = variants; // parallel to Cargo.loadableCarTypes
     }
 
     private static readonly Dictionary<string, CargoSnapshot> _snapshots = [];
+
+    // Slots whose cargo we have rewritten since snapshotting it. A rewrite doesn't always show up in the
+    // name (a CCL author can change nothing but the crate model), so "is this dirty?" has to be tracked
+    // rather than inferred from any one field. Same lifetime as the snapshots for the same reason.
+    private static readonly HashSet<string> _customized = [];
 
     // The parts string template to derive a replaced demonstrator's name from. The DM3 ("DM3 Drivetrain")
     // is the generic default while steam locos use the S060 ("S060 Boiler"). Token is the
@@ -92,8 +99,7 @@ internal static class RestorationPartsCustomizer
                 + "dropped them. Same failure mode as a duplicate entry.");
     }
 
-    // Settings sentinel meaning "force the generic crate", i.e. skip auto-detect and use the DM3 reskin
-    // even if a name-matching cargo exists. Distinct from null (auto-detect) and a real cargo id.
+    // Settings sentinel meaning "force the generic crate" even if the CCL mod provides a different prefab
     internal const string GenericCrateSentinel = "__cd_generic_crate__";
 
     private const string RewrittenKeyPrefix = "customdemonstrators/parts/";
@@ -138,7 +144,8 @@ internal static class RestorationPartsCustomizer
             // car in a way that invalidates a previously valid configuration we should not brick the
             // entire quest chain. Log so user bug reports can be pointed to the actual root cause.
             Main.Logger.Warning($"Restoration parts cargo override '{choice}' for {slotId} is invalid "
-                + "(cargo missing or not loadable on the parts flatcar); falling back to auto-detect.");
+                + "(cargo missing or not loadable on the parts flatcar); falling back to the car's own "
+                + "parts, or the generic crate where its mod doesn't specify any.");
         }
 
         // Reverting back to vanilla quest state
@@ -149,25 +156,27 @@ internal static class RestorationPartsCustomizer
         }
         if (controller.locoPartCargo == null) return "none (slot has no parts cargo)";
 
-        if (choice != GenericCrateSentinel)
-        {
-            var matched = FuzzyMatchPartsCargo(replacementLoco);
-            if (matched != null)
-            {
-                controller.locoPartCargo = matched;
-                SyncRegisterNames(controller);
-                return "auto-detected";
-            }
-        }
+        // Forcing the generic crate is the player saying they want the plain reskin, so it also opts out
+        // of whatever the CCL author specified for the parts.
+        bool useAuthored = choice != GenericCrateSentinel;
 
-        // Past this point the cargo gets rewritten in place, so an added slot needs the copy it owns
-        // rather than the template's.
+        bool authored = useAuthored && HasAuthoredParts(replacementLoco);
+
+        // Past this point the cargo gets rewritten in place, so the slot has to be holding a cargo that is
+        // ours to rewrite rather than whatever an explicit override last pointed it at.
+        if (_snapshots.TryGetValue(slotId, out var snapshot))
+            controller.locoPartCargo = snapshot.Cargo;
+
+        // An added slot has no vanilla cargo to put back, and owns a copy made for exactly this.
         if (DemonstratorSlots.OwnCargoFor(controller) is CargoType_v2 own)
             controller.locoPartCargo = own;
 
-        Customize(controller.locoPartCargo, replacementLoco);
+        Customize(controller.locoPartCargo, replacementLoco, useAuthored);
+        _customized.Add(slotId);
         SyncRegisterNames(controller);
-        return choice == GenericCrateSentinel ? "generic crate (forced)" : "generic crate";
+        return authored ? "authored by the car's mod"
+            : choice == GenericCrateSentinel ? "generic crate (forced)"
+            : "generic crate";
     }
 
     private static readonly SavedMap _bakedCargo =
@@ -200,16 +209,18 @@ internal static class RestorationPartsCustomizer
     {
         if (string.IsNullOrEmpty(slotId) || cargo == null || _snapshots.ContainsKey(slotId)) return;
         var variants = cargo.loadableCarTypes?.Select(li => li.cargoPrefabVariants).ToArray() ?? [];
-        _snapshots[slotId] = new CargoSnapshot(cargo, cargo.localizationKeyFull, cargo.localizationKeyShort, variants);
+        _snapshots[slotId] = new CargoSnapshot(
+            cargo, cargo.localizationKeyFull, cargo.localizationKeyShort, cargo.massPerUnit, variants);
     }
 
     internal static void RevertSlotCargo(string slotId)
     {
         if (!_snapshots.TryGetValue(slotId, out var snap)) return;
-        if (snap.Cargo.localizationKeyFull == snap.FullKey) return;
+        if (!_customized.Remove(slotId)) return;
 
         snap.Cargo.localizationKeyFull = snap.FullKey;
         snap.Cargo.localizationKeyShort = snap.ShortKey;
+        snap.Cargo.massPerUnit = snap.Mass;
 
         var loadables = snap.Cargo.loadableCarTypes;
         if (loadables != null)
@@ -225,7 +236,7 @@ internal static class RestorationPartsCustomizer
     private static void RevertCargo(LocoRestorationController controller, string slotId)
     {
         if (!_snapshots.TryGetValue(slotId, out var snap)) return;
-        if (controller.locoPartCargo == snap.Cargo && snap.Cargo.localizationKeyFull == snap.FullKey) return;
+        if (controller.locoPartCargo == snap.Cargo && !_customized.Contains(slotId)) return;
 
         RevertSlotCargo(slotId);
         controller.locoPartCargo = snap.Cargo;
@@ -241,55 +252,52 @@ internal static class RestorationPartsCustomizer
     internal static CargoType_v2? FindCargo(string id) =>
         Globals.G?.Types?.cargos?.FirstOrDefault(c => c != null && c.id == id);
 
-    // Best-effort guess at the cargo a CCL modder set up as `loco`'s repair parts, matching by name
-    // in both the localized string and the parts id. Only used to pre-fill the settings GUI, we don't
-    // make any guesses at actual runtime and fully respect the user's choice in the actual ApplyCargo
-    // method.
-    internal static CargoType_v2? FuzzyMatchPartsCargo(TrainCarLivery loco)
+    // Whether the CCL author configured anything about this loco's replacement parts,
+    // used purely in the GUI to indicate to the users whether the default setting
+    // comes from our mod or theirs.
+    internal static bool HasAuthoredParts(TrainCarLivery? loco) =>
+        AuthoredKey(CustomCarLoaderHelper.PartsNameKeyFor(loco)) != null
+        || AuthoredKey(CustomCarLoaderHelper.PartsShortNameKeyFor(loco)) != null
+        || HasAuthoredModel(loco);
+
+    private static bool HasAuthoredModel(TrainCarLivery? loco) => CustomCarLoaderHelper.PartsModelFor(loco) switch
     {
-        var cargos = Globals.G?.Types?.cargos;
-        if (cargos == null) return null;
+        null or PartsCargoModel.GenericBox => false,
+        PartsCargoModel.Custom => CustomCarLoaderHelper.HasPartsPrefab(loco),
+        _ => true,
+    };
 
-        string locoId = Normalize(loco.id);
-        string locoName = Normalize(LocalizationAPI.L(loco.localizationKey));
+    // CCL registers these strings itself, so a key that resolves to nothing means no value was provided by
+    // the mod author and we should build our own string.
+    private static string? AuthoredKey(string? key) =>
+        key != null && FindTerm(key).td != null ? key : null;
 
-        CargoType_v2? best = null;
-        int bestScore = 0;
-        foreach (var cargo in cargos)
+    private static void Customize(CargoType_v2 partsCargo, TrainCarLivery loco, bool useAuthored)
+    {
+        if (!useAuthored || !ApplyAuthoredName(partsCargo, loco))
         {
-            if (cargo == null || !SlotChoices.CanBeRestorationParts(cargo)) continue;
-            // Don't detect a cargo we ourselves created
-            if (cargo.localizationKeyFull?.StartsWith(RewrittenKeyPrefix, StringComparison.Ordinal) == true)
-                continue;
-            if (SlotTypes.IsSlotCargo(cargo)) continue;
-            string cargoId = Normalize(cargo.id);
-            string cargoName = Normalize(LocalizationAPI.L(cargo.localizationKeyFull));
-
-            int score = ContainScore(cargoId, locoId) + ContainScore(cargoId, locoName)
-                + ContainScore(cargoName, locoId) + ContainScore(cargoName, locoName);
-            if (score == 0) continue;
-            if (cargoId.Contains("part") || cargoName.Contains("part")) score += 3;
-
-            if (score > bestScore)
-            {
-                bestScore = score;
-                best = cargo;
-            }
+            var template = IsSteam(loco) ? SteamTemplate : DieselTemplate;
+            RenameToMatch(partsCargo, loco, template);
         }
-        return best;
+
+        ApplyModel(partsCargo, loco, useAuthored);
+
+        if (CustomCarLoaderHelper.PartsMassFor(loco) is float mass && mass > 0f)
+            partsCargo.massPerUnit = mass;
     }
 
-    private static int ContainScore(string haystack, string needle) =>
-        needle.Length >= 2 && haystack.Contains(needle) ? needle.Length : 0;
-
-    private static string Normalize(string? s) =>
-        string.IsNullOrEmpty(s) ? "" : new string(s!.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
-
-    private static void Customize(CargoType_v2 partsCargo, TrainCarLivery loco)
+    // Names the parts exactly as the CCL author did, in every language they supplied.
+    private static bool ApplyAuthoredName(CargoType_v2 partsCargo, TrainCarLivery loco)
     {
-        var template = IsSteam(loco) ? SteamTemplate : DieselTemplate;
-        RenameToMatch(partsCargo, loco, template);
-        UseDm3Model(partsCargo);
+        var fullKey = AuthoredKey(CustomCarLoaderHelper.PartsNameKeyFor(loco));
+        var shortKey = AuthoredKey(CustomCarLoaderHelper.PartsShortNameKeyFor(loco));
+        if (fullKey == null && shortKey == null) return false;
+
+        // An author who filled in only one of the two gets it used for both, the same as the game does
+        // for cargoes whose short name would just repeat the long one.
+        partsCargo.localizationKeyFull = fullKey ?? shortKey!;
+        partsCargo.localizationKeyShort = shortKey ?? fullKey!;
+        return true;
     }
 
     private static bool IsSteam(TrainCarLivery loco)
@@ -343,18 +351,66 @@ internal static class RestorationPartsCustomizer
         return items;
     }
 
-    // Swap the parts crate model for the crate one, keeping the cargo's own loadable car types
-    private static void UseDm3Model(CargoType_v2 partsCargo)
+    private static readonly Dictionary<PartsCargoModel, CargoType> _modelSources = new()
     {
-        var dm3 = CargoType.TrainPartsDM3.ToV2();
-        if (dm3 == null || dm3 == partsCargo || dm3.loadableCarTypes == null || dm3.loadableCarTypes.Length == 0)
+        [PartsCargoModel.GenericBox] = CargoType.TrainPartsDM3,
+        [PartsCargoModel.BoilerS060] = CargoType.TrainPartsS060,
+        [PartsCargoModel.WheelsS282] = CargoType.TrainPartsS282A,
+        [PartsCargoModel.EngineDE6] = CargoType.TrainPartsDE6,
+    };
+
+    private static void ApplyModel(CargoType_v2 partsCargo, TrainCarLivery loco, bool useAuthored)
+    {
+        var model = useAuthored
+            ? CustomCarLoaderHelper.PartsModelFor(loco) ?? PartsCargoModel.GenericBox
+            : PartsCargoModel.GenericBox;
+
+        if (model == PartsCargoModel.Custom && UseAuthoredModel(partsCargo, loco)) return;
+
+        UseStockModel(partsCargo,
+            _modelSources.TryGetValue(model, out var source) ? source : CargoType.TrainPartsDM3);
+    }
+
+    // Loads the author's own crate prefabs, or falls back to the default crate if not provided
+    private static bool UseAuthoredModel(CargoType_v2 partsCargo, TrainCarLivery loco)
+    {
+        var (dm1u, flatbed) = CustomCarLoaderHelper.PartsPrefabsFor(loco);
+        if (dm1u == null && flatbed == null)
+        {
+            return false;
+        }
+        if (partsCargo.loadableCarTypes == null) return false;
+
+        // Default to the stock crate so a carrier the author shipped no prefab for keeps a model that fits it.
+        UseStockModel(partsCargo, CargoType.TrainPartsDM3);
+
+        var dm1uType = TrainCarType.LocoDM1U.ToV2();
+
+        foreach (var li in partsCargo.loadableCarTypes)
+        {
+            bool isDm1u = li.carType != null && li.carType == dm1uType;
+            var prefab = isDm1u ? dm1u : flatbed;
+
+            if (prefab != null) li.cargoPrefabVariants = [prefab];
+        }
+        _prefabCacheField?.SetValue(partsCargo, null); // force TrainCargoToCargoPrefabs to rebuild
+        return true;
+    }
+
+    // Swap the parts crate model for one of the game's own, keeping the cargo's loadable car types
+    private static void UseStockModel(CargoType_v2 partsCargo, CargoType model)
+    {
+        var stock = model.ToV2();
+        if (stock == null || stock == partsCargo || stock.loadableCarTypes == null
+            || stock.loadableCarTypes.Length == 0)
             return;
         if (partsCargo.loadableCarTypes == null) return;
 
         foreach (var li in partsCargo.loadableCarTypes)
         {
-            var dm3Li = dm3.loadableCarTypes.FirstOrDefault(d => d.carType == li.carType) ?? dm3.loadableCarTypes[0];
-            li.cargoPrefabVariants = dm3Li.cargoPrefabVariants;
+            var from = stock.loadableCarTypes.FirstOrDefault(d => d.carType == li.carType)
+                ?? stock.loadableCarTypes[0];
+            li.cargoPrefabVariants = from.cargoPrefabVariants;
         }
         _prefabCacheField?.SetValue(partsCargo, null); // force TrainCargoToCargoPrefabs to rebuild
     }

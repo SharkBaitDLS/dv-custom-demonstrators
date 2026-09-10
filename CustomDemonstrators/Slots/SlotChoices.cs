@@ -370,7 +370,7 @@ internal static class SlotChoices
             if (primary == null) continue;
 
             var choice = Main.Settings.GetPartsCargoId(primary.id);
-            // auto-detect and the generic crate are always loadable since we enforce that flatcar selections
+            // the default and the generic crate are always loadable since we enforce that flatcar selections
             // can at minimum carry all vanilla parts cargo
             if (string.IsNullOrEmpty(choice) || choice == RestorationPartsCustomizer.GenericCrateSentinel)
                 continue;

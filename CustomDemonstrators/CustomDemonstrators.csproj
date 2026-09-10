@@ -65,6 +65,9 @@
 		<Reference Include="CCL.Importer" Private="false">
 			<HintPath>$(ReferencePath)..\..\Mods\DVCustomCarLoader\CCL.Importer.dll</HintPath>
 		</Reference>
+		<Reference Include="CCL.Types" Private="false">
+			<HintPath>$(ReferencePath)..\..\Mods\DVCustomCarLoader\CCL.Types.dll</HintPath>
+		</Reference>
 	</ItemGroup>
 
 	<!-- Unity -->

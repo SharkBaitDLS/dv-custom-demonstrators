@@ -1,18 +1,18 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
-using UnityModManagerNet;
+using CustomDemonstrators.Slots;
 
 namespace CustomDemonstrators.World;
 
-// A CCL author supplies a photo for the board by providing `DemonstratorPosters/<livery id>.png` as part of
-// their mod's assets. It should be a square 512x512 image to match the game's expectations. The actual shown
-// part of the image will be 512x400 because of the nameplate strip at the top.
+// A CCL author supplies a photo for the board on the livery itself, as its DemonstratorPoster texture.
+// It should be a square 512x512 image to match the game's expectations. The actual shown part of the image
+// will be 512x400 because of the nameplate strip at the top.
 //
-// A player can put one in this mod's own DemonstratorPosters folder to override whatever a mod ships with.
+// A player overrides whatever a car's mod ships by dropping `<livery id>.png` into this mod's own
+// DemonstratorPosters folder.
 internal static class SlotPoster
 {
     private const string Folder = "DemonstratorPosters";
@@ -29,19 +29,20 @@ internal static class SlotPoster
         var posters = Posters(board);
         if (posters.Count == 0) return;
 
-        var picture = Load(locoId);
+        var (picture, owned) = Load(locoId);
         var shown = false;
 
         foreach (var poster in posters)
         {
             Forget(poster);
 
-            var reskinned = picture != null && Reskin(poster, picture);
+            var reskinned = picture != null && Reskin(poster, picture!);
             poster.enabled = reskinned;
             shown |= reskinned;
         }
 
-        if (picture != null && !shown) UnityEngine.Object.Destroy(picture);
+        // A texture read from a file is ours to clean up
+        if (picture != null && owned && !shown) UnityEngine.Object.Destroy(picture);
     }
 
     // Hands a panel back to the museum if we overrode a vanilla one
@@ -117,11 +118,27 @@ internal static class SlotPoster
         return new Rect((column - 1) * size, 1f - (row + 1) * size, size, size);
     }
 
-    private static Texture2D? Load(string locoId)
+    // The player's own override first, then whatever the car's mod put on the livery.
+    private static (Texture2D? Picture, bool Owned) Load(string locoId)
     {
-        var file = Find(locoId);
-        if (file == null) return null;
+        if (!string.IsNullOrEmpty(Main.ModPath))
+        {
+            var file = Path.Combine(Main.ModPath, Folder, locoId + ".png");
+            if (File.Exists(file) && Read(locoId, file) is Texture2D own) return (own, true);
+        }
 
+        if (CustomCarLoaderHelper.PosterFor(DemonstratorSetup.GetLivery(locoId)) is Texture2D authored)
+        {
+            Main.Logger.Log($"Additional demonstrator '{locoId}' is showing the restoration poster its own "
+                + "mod ships on the livery.");
+            return (authored, false);
+        }
+
+        return (null, false);
+    }
+
+    private static Texture2D? Read(string locoId, string file)
+    {
         var picture = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: true)
         {
             name = Mine,
@@ -144,87 +161,5 @@ internal static class SlotPoster
 
         UnityEngine.Object.Destroy(picture);
         return null;
-    }
-
-    // Finds an image for the mod, following a hierarchy:
-    // 1. An image added by the user in this mod's own directory
-    // 2. An image provided by the CCL mod that distributed the locomotive
-    // 3. An image provided by a different mod that matches the livery ID
-    private static string? Find(string locoId)
-    {
-        if (!string.IsNullOrEmpty(Main.ModPath))
-        {
-            var mine = Path.Combine(Main.ModPath, Folder, locoId + ".png");
-            if (File.Exists(mine)) return mine;
-        }
-
-        string? elsewhere = null;
-        string? theirs = null;
-
-        foreach (var mod in UnityModManager.modEntries)
-        {
-            if (mod == null || !mod.Active || string.IsNullOrEmpty(mod.Path)) continue;
-
-            var folder = Path.Combine(mod.Path, Folder);
-            var file = Path.Combine(folder, locoId + ".png");
-            var defines = Defines(mod, locoId);
-
-            if (File.Exists(file))
-            {
-                if (defines) return file;
-                elsewhere ??= file;
-            }
-            else if (defines && Directory.Exists(folder))
-            {
-                theirs = folder;
-            }
-        }
-
-        if (elsewhere == null && theirs != null) ReportMiss(locoId, theirs);
-
-        return elsewhere;
-    }
-
-    // Helpful log message for people like me that typo their image names and get confused
-    private static void ReportMiss(string locoId, string folder)
-    {
-        string held;
-        try
-        {
-            held = string.Join(", ", Directory.GetFiles(folder, "*.png").Select(Path.GetFileName));
-        }
-        catch (Exception error)
-        {
-            held = error.Message;
-        }
-
-        Main.Logger.Warning($"The mod providing '{locoId}' ships restoration posters, but none named for it: "
-            + $"{folder} holds {held}. A poster is named after the livery it belongs to, so this one wants "
-            + $"{locoId}.png.");
-    }
-
-    // Reflect into the CCL GUI to figure out which liveries come from which folders
-    // to break ties in the event two mods provide the same image name.
-    private static bool Defines(UnityModManager.ModEntry mod, string locoId)
-    {
-        if (mod.OnGUI == null) return false;
-
-        foreach (var handler in mod.OnGUI.GetInvocationList())
-        {
-            var loaded = handler?.Target;
-            if (loaded?.GetType().FullName != "CCL.Importer.LoadedModSettings") continue;
-            if (loaded.GetType().GetField("Ids")?.GetValue(loaded) is not IEnumerable cars) continue;
-
-            foreach (var car in cars)
-            {
-                if (car?.GetType().GetField("Item2")?.GetValue(car) is IEnumerable liveries
-                    && liveries.Cast<object>().Any(l => (l as string) == locoId))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 }
