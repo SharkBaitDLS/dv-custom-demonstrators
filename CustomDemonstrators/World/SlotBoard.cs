@@ -74,6 +74,36 @@ internal static class SlotBoard
             board, holder, source.transform, position, rotation, !string.IsNullOrEmpty(home.Stall));
     }
 
+    internal static bool Reposition(
+        string locoId, GameObject? board, LocoRestorationController? template, GameObject? marker)
+    {
+        if (board == null || template == null || marker == null) return false;
+
+        var source = Template(template);
+        if (source == null) return false;
+
+        var home = new SlotScene.SlotHome(marker, null, placed: true);
+        if (Pose(locoId, source.transform, home, template) is not (Vector3 position, Quaternion rotation))
+            return false;
+
+        board.transform.localPosition = position;
+        board.transform.localRotation = rotation;
+
+        Detach(board.transform, source.transform);
+        return true;
+    }
+
+    private static void Detach(Transform board, Transform source)
+    {
+        if (board.GetComponent<PlayerDistanceMultipleGameObjectsOptimizer>() != null) return;
+
+        foreach (var museum in Optimizers(board))
+        {
+            museum.gameObjectsToDisable.RemoveAll(go => go == null || go.transform.IsChildOf(board));
+        }
+        Optimize(board, source, inStall: false);
+    }
+
     internal static void Destroy(GameObject? board)
     {
         if (board == null) return;

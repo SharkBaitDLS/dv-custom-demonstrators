@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using DV;
 using DV.LocoRestoration;
@@ -11,6 +12,26 @@ internal static class DemonstratorSetup
 {
     internal static TrainCarLivery? GetLivery(string id) =>
         Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == id);
+
+    // A license lent to a tender outlives the world it was lent in, noted here so it can be removed when
+    // reloading a save/switching sessions
+    private static readonly HashSet<TrainCarLivery> _lentLicenses = [];
+
+    private static void LendLicense(TrainCarLivery tender, GeneralLicenseType_v2? license)
+    {
+        if (license == null || tender.requiredLicense != null) return;
+        tender.requiredLicense = license;
+        _lentLicenses.Add(tender);
+    }
+
+    internal static void ReturnLentLicenses()
+    {
+        foreach (var tender in _lentLicenses)
+        {
+            tender?.requiredLicense = null;
+        }
+        _lentLicenses.Clear();
+    }
 
     internal static bool Resolve(
         TrainCarLivery? loco, TrainCarLivery? originalTender, string slotId,
@@ -80,9 +101,7 @@ internal static class DemonstratorSetup
         {
             // To get the tender to display the demonstrator message, it has to inherit the license of the
             // locomotive. Most CCL mod authors don't license the tender, just the loco. Patch that for them.
-            var effectiveLoco = controller.locoLivery;
-            if (tenderId.requiredLicense == null && effectiveLoco?.requiredLicense != null)
-                tenderId.requiredLicense = effectiveLoco.requiredLicense;
+            LendLicense(tenderId, controller.locoLivery?.requiredLicense);
 
             controller.secondCarBlockerPrefab = ZoneBlockers.First(
                 ZoneBlockers.PrefabFor(tenderId),

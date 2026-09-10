@@ -176,6 +176,6 @@ internal static class WorkTrainGarages
         var home = car.GetComponent<HomeGarageReference>();
         if (home != null) UnityEngine.Object.Destroy(home);
         CarLifecycle.DestroyStaleBlockers(car);
-        SingletonBehaviour<CarSpawner>.Instance.DeleteCar(car);
+        CarLifecycle.Delete(car);
     }
 }

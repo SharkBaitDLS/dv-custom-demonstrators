@@ -108,7 +108,9 @@ internal static class SettingsGUI
             GUILayout.Space(4);
             if (GUILayout.Button("Apply settings to this save", GUILayout.Width(360)))
                 SaveGuard.ForceApplyDemonstrators();
-            GUILayout.Label("Demonstrator slots whose locomotive or tender changed will respawn as a fresh wreck at "
+            GUILayout.Label("Moving a demonstrator changes where it is delivered for restoration and where it "
+                + "respawns when cleared, but does not move the actual locomotive. "
+                + "Demonstrator slots whose locomotive or tender changed will respawn as a fresh wreck at "
                 + "a new location, and any demonstrators in those slots are removed. Removed demonstrators that are "
                 + "unrestored will be deleted, while any restored locmotives stays in the world but will no longer be "
                 + "summonable from the comms radio or respawn when cleared. If a demonstrator only moves between slots "
@@ -130,7 +132,8 @@ internal static class SettingsGUI
                 SaveGuard.ForceApplyGarages();
             GUILayout.Label("Each opened garage respawns your chosen replacement. Cars you've already removed from an "
                 + "unlocked garage are kept as owned by your player but will no longer be summonable by the comms radio. "
-                + "Garages you have added are built, moved or removed in the same way.");
+                + "Garages you have added are built, moved or removed in the same way. A car one of them "
+                + "already spawned stays where it is until it is summoned or cleared.");
             GUILayout.EndVertical();
             GUILayout.Space(6);
         }
@@ -430,10 +433,10 @@ internal static class SettingsGUI
         DrawPlacementRow($"slot:{slot.LocoId}",
             DemonstratorSlots.Template()?.garageSpawner?.locoSpawnPoint?.transform,
             slot.Home, "No stall left in the musuem, place the home by hand to progress the restoration",
-            (home, yaw) => Main.Settings.SetAdditionalSlotHome(slot.LocoId, home, yaw));
+            home => Main.Settings.SetAdditionalSlotHome(slot.LocoId, home));
 
     private static void DrawPlacementRow(
-        string key, Transform? anchor, Vector3? home, string unplacedLabel, System.Action<Vector3?, float> set)
+        string key, Transform? anchor, Placement? home, string unplacedLabel, System.Action<Placement?> set)
     {
         var player = PlayerManager.PlayerTransform;
 
@@ -444,22 +447,22 @@ internal static class SettingsGUI
         if (anchor != null && player != null
             && GUILayout.Button("Set to where I'm standing", GUILayout.Width(190)))
         {
-            set(anchor.InverseTransformPoint(player.position),
-                Quaternion.Inverse(anchor.rotation).eulerAngles.y + player.eulerAngles.y);
+            set(new Placement(anchor.InverseTransformPoint(player.position),
+                Quaternion.Inverse(anchor.rotation).eulerAngles.y + player.eulerAngles.y));
         }
 
         if (home.HasValue && GUILayout.Button("Clear", GUILayout.Width(50)))
-            set(null, 0f);
+            set(null);
 
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
     }
 
-    private static string PlacementLabel(string key, Vector3? home, Transform? anchor, string unplacedLabel)
+    private static string PlacementLabel(string key, Placement? home, Transform? anchor, string unplacedLabel)
     {
-        if (home is not Vector3 offset) return unplacedLabel;
+        if (home is not Placement placement) return unplacedLabel;
         if (anchor == null) return "Placed by hand";
-        return PlacedTrack(key, offset, anchor) ?? "Placed by hand but no track nearby";
+        return PlacedTrack(key, placement.Offset, anchor) ?? "Placed by hand but no track nearby";
     }
 
     // Resolving a placement searches every track in the world, so we cache after it is placed
@@ -510,7 +513,7 @@ internal static class SettingsGUI
             var chosen = garage;
             DrawPlacementRow($"garage:{chosen.PrimaryId}", GarageHomes.Anchor(), chosen.Home,
                 "Not yet placed",
-                (home, yaw) => Main.Settings.SetAdditionalGarageHome(chosen.PrimaryId, home, yaw));
+                home => Main.Settings.SetAdditionalGarageHome(chosen.PrimaryId, home));
             DrawGarageExtras(SlotTypes.WorkGarageId(chosen.PrimaryId));
             DrawSummonPriceRow(SlotTypes.WorkGarageId(chosen.PrimaryId), primary,
                 VanillaGarages.DefaultSummonPrice());
@@ -567,7 +570,7 @@ internal static class SettingsGUI
             var chosen = candidate;
             yield return new(Loc(chosen.localizationKey, chosen.id), chosen.id, () =>
             {
-                Main.Settings.AddAdditionalGarage(chosen.id);
+                SlotChoices.AddAdditionalGarage(chosen.id);
                 _openAdditionalGaragePicker = false;
             });
         }
@@ -689,8 +692,11 @@ internal static class SettingsGUI
 
         GUILayout.BeginHorizontal();
         SubRowHeader("Summon price:");
-        DrawPriceField($"{garageId}:summon", Main.Settings.GetSummonPrice(garageId),
-            v => Main.Settings.SetSummonPrice(garageId, v));
+        DrawPriceField($"{garageId}:summon", Main.Settings.GetSummonPrice(garageId), v =>
+        {
+            Main.Settings.SetSummonPrice(garageId, v);
+            GarageLiveries.ApplySummonPrice(garageId, primary, fallback);
+        });
         GUILayout.Label($"default: ${defaultPrice:0}{source}{SummonCapNote()}");
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();

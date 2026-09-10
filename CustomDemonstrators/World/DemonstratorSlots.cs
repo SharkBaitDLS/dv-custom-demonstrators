@@ -128,6 +128,12 @@ internal static class DemonstratorSlots
             GarageLiveries.ApplySummonPrice(slot.Garage, VanillaGarages.DefaultDemonstratorSummonPrice());
         }
 
+        foreach (var kv in _slots)
+        {
+            if (!SlotScene.MoveHome(kv.Key, kv.Value.Home, kv.Value.Controller)) continue;
+            SlotBoard.Reposition(kv.Key, kv.Value.Board, template, kv.Value.Home);
+        }
+
         if (changed) types.RecalculateCaches();
     }
 
@@ -145,16 +151,19 @@ internal static class DemonstratorSlots
 
         var tender = TenderFor(locoId);
 
-        // A livery may back only one garage
+        // If we're in a desynced state reading from baked data for demos but live data for garages or
+        // visa versa, we can end up colliding on ownership. This unfucks that state and favors demos.
         foreach (var claimed in new[] { loco, tender })
         {
             if (claimed == null) continue;
+
             var owner = types.garages.FirstOrDefault(g => g?.garageCarLiveries?.Contains(claimed) == true);
-            if (owner != null)
-            {
-                Main.Logger.Warning($"Additional demonstrator '{locoId}' was skipped: {claimed.id} is already spawned by garage {owner.id}.");
-                return false;
-            }
+            GarageCarSpawner.Spawners.TryGetValue(claimed, out var spawner);
+            if (owner == null && spawner == null) continue;
+
+            var by = owner?.id ?? spawner.garageType?.id ?? "another garage";
+            Main.Logger.Warning($"Additional demonstrator '{locoId}' was skipped: {claimed.id} is already spawned by garage {by}.");
+            return false;
         }
 
         var garage = SlotTypes.GetOrCreateGarage(locoId, loco, tender, template.garageSpawner.garageType);
@@ -254,6 +263,17 @@ internal static class DemonstratorSlots
         if (baked == null) return [];
         var vanilla = VanillaGarages.VanillaDemonstratorIds();
         return baked.Keys.Where(id => !vanilla.Contains(id));
+    }
+
+    internal static HashSet<string> ClaimedLiveryIds()
+    {
+        var ids = new HashSet<string>();
+        foreach (var locoId in DesiredLocoIds())
+        {
+            ids.Add(locoId);
+            if (TenderFor(locoId)?.id is string tenderId) ids.Add(tenderId);
+        }
+        return ids;
     }
 
     internal static CargoType_v2? OwnCargoFor(LocoRestorationController controller)

@@ -232,9 +232,9 @@ internal static class RestorationPartsCustomizer
         SyncRegisterNames(controller);
     }
 
+    // Snapshots must *not* be reset between saves or else we mistakenly read our modified state into the snapshot
     internal static void Reset()
     {
-        _snapshots.Clear();
         _bakedCargo.Reset();
     }
 

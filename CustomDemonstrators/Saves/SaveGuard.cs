@@ -22,7 +22,7 @@ internal static class SaveGuard
     internal static bool AllowDemonstratorChanges()
     {
         if (_allowDemo.HasValue) return _allowDemo.Value;
-        bool result = Decide(_forcedDemo, DemonstratorFingerprintKey, DemonstratorFingerprint, PlacementsPreserved, out bool undecided);
+        bool result = Decide(_forcedDemo, DemonstratorFingerprintKey, DemonstratorFingerprint, PlacementsAgree, out bool undecided);
         if (!undecided) _allowDemo = result; // leave uncached while the save isn't readable yet
         return result;
     }
@@ -31,7 +31,7 @@ internal static class SaveGuard
     internal static bool AllowGarageChanges()
     {
         if (_allowGarage.HasValue) return _allowGarage.Value;
-        bool result = Decide(_forcedGarage, GarageFingerprintKey, GarageFingerprint, GaragePlacementsPreserved, out bool undecided);
+        bool result = Decide(_forcedGarage, GarageFingerprintKey, GarageFingerprint, GaragePlacementsAgree, out bool undecided);
         if (!undecided) _allowGarage = result;
         return result;
     }
@@ -60,27 +60,27 @@ internal static class SaveGuard
     internal static bool IsGarageBlocking => SaveState.Data() != null && !AllowGarageChanges();
 
     // Where each slot stands is deliberately held out of the fingerprint, since the floats would read as
-    // drift, so it is checked against the save's own record here instead. Only the destructive direction
-    // counts as out of sync: settings carrying no placement for a slot the save has hand-placed would erase
-    // it on load. Moving a slot in the menu is left to apply on the next load as it always has.
-    private static bool PlacementsPreserved()
+    // drift, so it is checked against the save's own record here instead.
+    private static bool PlacementsAgree()
     {
         foreach (var slot in Main.Settings.AdditionalSlots)
         {
             if (string.IsNullOrEmpty(slot.LocoId)) continue;
             if (MuseumStalls.WouldErasePlacement(slot.LocoId, slot.Home)) return false;
+            if (MuseumStalls.PlacementMoved(slot.LocoId, slot.Home)) return false;
         }
         return true;
     }
 
     // Same rule for the garages this mod adds, against their own record of where each one stands.
-    private static bool GaragePlacementsPreserved()
+    private static bool GaragePlacementsAgree()
     {
         foreach (var garage in Main.Settings.AdditionalGarages)
         {
             if (string.IsNullOrEmpty(garage.PrimaryId)) continue;
-            if (GarageHomes.WouldErasePlacement(SlotTypes.WorkGarageId(garage.PrimaryId), garage.Home))
-                return false;
+            var garageId = SlotTypes.WorkGarageId(garage.PrimaryId);
+            if (GarageHomes.WouldErasePlacement(garageId, garage.Home)) return false;
+            if (GarageHomes.PlacementMoved(garageId, garage.Home)) return false;
         }
         return true;
     }
@@ -95,8 +95,8 @@ internal static class SaveGuard
         return string.IsNullOrEmpty(s) ? null : s;
     }
 
-    internal static bool IsDemonstratorOutOfSync => OutOfSync(DemonstratorFingerprintKey, DemonstratorFingerprint, PlacementsPreserved);
-    internal static bool IsGarageOutOfSync => OutOfSync(GarageFingerprintKey, GarageFingerprint, GaragePlacementsPreserved);
+    internal static bool IsDemonstratorOutOfSync => OutOfSync(DemonstratorFingerprintKey, DemonstratorFingerprint, PlacementsAgree);
+    internal static bool IsGarageOutOfSync => OutOfSync(GarageFingerprintKey, GarageFingerprint, GaragePlacementsAgree);
 
     private static bool OutOfSync(string key, Func<string> fingerprint, Func<bool>? alsoInSync = null)
     {
@@ -118,6 +118,7 @@ internal static class SaveGuard
         _forcedDemo = true;
         _allowDemo = null;
         AllowDemonstratorChanges();
+        DemonstratorSetup.ReturnLentLicenses(); // re-derived below, and a dropped tender keeps nothing
         GarageLiveries.Apply();
         // Add and remove the mod's own slots before respawning, so the loop below sees the final set and a
         // slot that was just taken apart isn't handed a fresh wreck on its way out.

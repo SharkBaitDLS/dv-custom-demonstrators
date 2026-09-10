@@ -1,4 +1,5 @@
 using System.Globalization;
+using CustomDemonstrators.World;
 using UnityEngine;
 
 namespace CustomDemonstrators.Saves;
@@ -13,13 +14,13 @@ internal static class PlacedHomes
 
     // .NET Framework's default float formatting is lossy, and a placement that drifts every
     // time it goes through the save would slowly walk the spawn off its track.
-    internal static string Encode(Vector3 offset, float yaw) => string.Join("/",
-        [Prefix + offset.x.ToString("R", CultureInfo.InvariantCulture),
-         offset.y.ToString("R", CultureInfo.InvariantCulture),
-         offset.z.ToString("R", CultureInfo.InvariantCulture),
-         yaw.ToString("R", CultureInfo.InvariantCulture)]);
+    internal static string Encode(Placement placement) => string.Join("/",
+        [Prefix + placement.Offset.x.ToString("R", CultureInfo.InvariantCulture),
+         placement.Offset.y.ToString("R", CultureInfo.InvariantCulture),
+         placement.Offset.z.ToString("R", CultureInfo.InvariantCulture),
+         placement.Yaw.ToString("R", CultureInfo.InvariantCulture)]);
 
-    internal static (Vector3 Offset, float Yaw)? Decode(string? value)
+    internal static Placement? Decode(string? value)
     {
         if (!IsPlacement(value)) return null;
 
@@ -35,6 +36,6 @@ internal static class PlacedHomes
                 return null;
             }
         }
-        return (new Vector3(numbers[0], numbers[1], numbers[2]), numbers[3]);
+        return new Placement(new Vector3(numbers[0], numbers[1], numbers[2]), numbers[3]);
     }
 }

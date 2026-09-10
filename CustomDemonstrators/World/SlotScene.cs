@@ -4,6 +4,7 @@ using System.Reflection;
 using DV.CashRegister;
 using DV.LocoRestoration;
 using DV.Shops;
+using DV.Utils;
 using DV.ThingTypes;
 using HarmonyLib;
 using UnityEngine;
@@ -34,10 +35,10 @@ internal static class SlotScene
 
         // Settings only speak for a save they were baked into; otherwise the save's own record is all we have.
         var placement = Placement(locoId);
-        if (placement is (Vector3 offset, float yaw))
+        if (placement is Placement p)
         {
-            marker.transform.localPosition = offset;
-            marker.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            marker.transform.localPosition = p.Offset;
+            marker.transform.localRotation = Quaternion.Euler(0f, p.Yaw, 0f);
             return new SlotHome(marker, null, placed: true);
         }
 
@@ -64,12 +65,11 @@ internal static class SlotScene
 
     // The placement to build this slot at, taken from the settings while they're the ones this save was baked
     // from and copied into the save as we go, so a later load can rebuild it without them.
-    private static (Vector3 Offset, float Yaw)? Placement(string locoId)
+    internal static Placement? Placement(string locoId)
     {
         if (!SaveGuard.AllowDemonstratorChanges()) return MuseumStalls.PlacementFor(locoId);
 
-        var slot = Main.Settings.GetAdditionalSlot(locoId);
-        var placement = slot?.Home is Vector3 offset ? (offset, slot.HomeYaw) : ((Vector3, float)?)null;
+        var placement = Main.Settings.GetAdditionalSlot(locoId)?.Home;
         MuseumStalls.RecordPlacement(locoId, placement);
         return placement;
     }
@@ -168,6 +168,40 @@ internal static class SlotScene
     }
 
     internal static string? TrackNameAt(Vector3 position) => RailTrack.GetClosest(position).track?.name;
+
+    // Puts a hand-placed slot on its new spot. Returns whether anything moved.
+    internal static bool MoveHome(string locoId, GameObject? marker, LocoRestorationController? controller)
+    {
+        if (marker == null || Placement(locoId) is not Placement placement) return false;
+
+        var rotation = Quaternion.Euler(0f, placement.Yaw, 0f);
+        if (marker.transform.localPosition == placement.Offset
+            && marker.transform.localRotation == rotation) return false;
+
+        marker.transform.localPosition = placement.Offset;
+        marker.transform.localRotation = rotation;
+
+        var track = TrackNameAt(marker.transform.position);
+        if (controller == null || track == null || track == controller.destinationTrackId)
+        {
+            Main.Logger.Log($"Moved the demonstrator slot for {locoId}.");
+            return true;
+        }
+
+        controller.destinationTrackId = track;
+        DestinationRailTrack?.SetValue(controller,
+            SingletonBehaviour<RailTrackRegistryBase>.Instance?.GetTrackWithName(track));
+
+        Main.Logger.Log($"Moved the demonstrator slot for {locoId} to track {track}"
+            + (controller.State is > LocoRestorationController.RestorationState.S0_Initialized
+                    and < LocoRestorationController.RestorationState.S4_OnDestinationTrack
+                ? ", which is where its wreck now has to be hauled."
+                : "."));
+        return true;
+    }
+
+    private static readonly FieldInfo? DestinationRailTrack =
+        AccessTools.Field(typeof(LocoRestorationController), "destinationRailTrack");
 
     internal static string DestinationTrackFor(string locoId, SlotHome home, string fallback)
     {

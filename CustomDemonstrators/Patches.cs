@@ -27,6 +27,8 @@ internal static class WorldStreamingInit_Awake_Patch
         AddedGarages.Reset();
         RestorationPopups.Reset();
         GaragePreviews.Reset();
+        GarageLiveries.DropDeadRegistrations();
+        DemonstratorSetup.ReturnLentLicenses();
     }
 }
 
@@ -94,6 +96,7 @@ internal static class Additions
 {
     internal static void BuildAll()
     {
+        GarageLiveries.RepointSpawners(GarageLiveries.Apply());
         DemonstratorSlots.BuildAll();
         AddedGarages.BuildAll();
     }

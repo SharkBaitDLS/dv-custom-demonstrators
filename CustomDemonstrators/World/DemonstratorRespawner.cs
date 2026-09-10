@@ -214,12 +214,12 @@ internal static class DemonstratorRespawner
         if (secondCar != null)
         {
             secondCar.preventDelete = false;
-            SingletonBehaviour<CarSpawner>.Instance.DeleteCar(secondCar);
+            CarLifecycle.Delete(secondCar);
         }
         else
         {
             loco.preventDelete = false;
-            SingletonBehaviour<CarSpawner>.Instance.DeleteCar(loco);
+            CarLifecycle.Delete(loco);
         }
     }
 

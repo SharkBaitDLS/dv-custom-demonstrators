@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DV.ThingTypes;
-using UnityEngine;
 using CustomDemonstrators.Slots;
 using CustomDemonstrators.World;
 
@@ -165,21 +164,11 @@ internal static class SaveAdoption
         if (Main.Settings.AdditionalGarages.Count > 0) Main.Settings.AllowAdditionalGarages = true;
     }
 
-    private static void AdoptGaragePlacement(string garageId, string primaryId)
-    {
-        if (GarageHomes.PlacementFor(garageId) is (Vector3 offset, float yaw))
-            Main.Settings.SetAdditionalGarageHome(primaryId, offset, yaw);
-        else
-            Main.Settings.SetAdditionalGarageHome(primaryId, null, 0f);
-    }
+    private static void AdoptGaragePlacement(string garageId, string primaryId) =>
+        Main.Settings.SetAdditionalGarageHome(primaryId, GarageHomes.PlacementFor(garageId));
 
-    private static void AdoptPlacement(string locoId)
-    {
-        if (MuseumStalls.PlacementFor(locoId) is (Vector3 offset, float yaw))
-            Main.Settings.SetAdditionalSlotHome(locoId, offset, yaw);
-        else
-            Main.Settings.SetAdditionalSlotHome(locoId, null, 0f);
-    }
+    private static void AdoptPlacement(string locoId) =>
+        Main.Settings.SetAdditionalSlotHome(locoId, MuseumStalls.PlacementFor(locoId));
 
     private static void AdoptCargoChoice(string slotId) =>
         Main.Settings.SetPartsCargoId(slotId, RestorationPartsCustomizer.BakedCargoChoice(slotId));

@@ -65,10 +65,10 @@ public class Settings : UnityModManager.ModSettings
         {
             LocoId = s.LocoId,
             HasHome = s.Home.HasValue,
-            HomeX = s.Home?.x ?? 0f,
-            HomeY = s.Home?.y ?? 0f,
-            HomeZ = s.Home?.z ?? 0f,
-            HomeYaw = s.HomeYaw,
+            HomeX = s.Home?.Offset.x ?? 0f,
+            HomeY = s.Home?.Offset.y ?? 0f,
+            HomeZ = s.Home?.Offset.z ?? 0f,
+            HomeYaw = s.Home?.Yaw ?? 0f,
         })];
         set => AdditionalSlots = [.. (value ?? [])
             .Where(e => !string.IsNullOrEmpty(e.LocoId))
@@ -77,8 +77,7 @@ public class Settings : UnityModManager.ModSettings
             .Select(e => new AdditionalSlot
             {
                 LocoId = e.LocoId,
-                Home = e.HasHome ? new Vector3(e.HomeX, e.HomeY, e.HomeZ) : null,
-                HomeYaw = e.HomeYaw,
+                Home = e.HasHome ? new Placement(new Vector3(e.HomeX, e.HomeY, e.HomeZ), e.HomeYaw) : null,
             })];
     }
 
@@ -91,10 +90,10 @@ public class Settings : UnityModManager.ModSettings
         {
             PrimaryId = g.PrimaryId,
             HasHome = g.Home.HasValue,
-            HomeX = g.Home?.x ?? 0f,
-            HomeY = g.Home?.y ?? 0f,
-            HomeZ = g.Home?.z ?? 0f,
-            HomeYaw = g.HomeYaw,
+            HomeX = g.Home?.Offset.x ?? 0f,
+            HomeY = g.Home?.Offset.y ?? 0f,
+            HomeZ = g.Home?.Offset.z ?? 0f,
+            HomeYaw = g.Home?.Yaw ?? 0f,
         })];
         set => AdditionalGarages = [.. (value ?? [])
             .Where(e => !string.IsNullOrEmpty(e.PrimaryId))
@@ -103,8 +102,7 @@ public class Settings : UnityModManager.ModSettings
             .Select(e => new AdditionalGarage
             {
                 PrimaryId = e.PrimaryId,
-                Home = e.HasHome ? new Vector3(e.HomeX, e.HomeY, e.HomeZ) : null,
-                HomeYaw = e.HomeYaw,
+                Home = e.HasHome ? new Placement(new Vector3(e.HomeX, e.HomeY, e.HomeZ), e.HomeYaw) : null,
             })];
     }
 
@@ -236,11 +234,10 @@ public class Settings : UnityModManager.ModSettings
         SetSummonPrice(SlotTypes.SlotGarageId(locoId), null);
     }
 
-    internal void SetAdditionalSlotHome(string locoId, Vector3? home, float yaw)
+    internal void SetAdditionalSlotHome(string locoId, Placement? home)
     {
         if (GetAdditionalSlot(locoId) is not AdditionalSlot slot) return;
         slot.Home = home;
-        slot.HomeYaw = yaw;
     }
 
     internal float? GetSummonPrice(string garageId) =>
@@ -274,11 +271,10 @@ public class Settings : UnityModManager.ModSettings
     internal IEnumerable<string> AdditionalGarageCars(string primaryId) =>
         [primaryId, .. GetExtraCars(SlotTypes.WorkGarageId(primaryId))];
 
-    internal void SetAdditionalGarageHome(string primaryId, Vector3? home, float yaw)
+    internal void SetAdditionalGarageHome(string primaryId, Placement? home)
     {
         if (GetAdditionalGarage(primaryId) is not AdditionalGarage garage) return;
         garage.Home = home;
-        garage.HomeYaw = yaw;
     }
 
     internal class AdditionalSlot
@@ -286,8 +282,7 @@ public class Settings : UnityModManager.ModSettings
         public string LocoId = "";
 
         // A position placed by hand, which takes precedence over any museum stall.
-        public Vector3? Home;
-        public float HomeYaw;
+        public Placement? Home;
     }
 
     internal class AdditionalGarage
@@ -295,8 +290,7 @@ public class Settings : UnityModManager.ModSettings
         public string PrimaryId = "";
 
         // Where the player put it. Until this is set, the locomotive won't spawn or be in the comms radio.
-        public Vector3? Home;
-        public float HomeYaw;
+        public Placement? Home;
     }
 
     public class AdditionalGarageEntry

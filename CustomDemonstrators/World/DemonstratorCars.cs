@@ -40,7 +40,7 @@ internal static class DemonstratorCars
 
             CarLifecycle.DestroyStaleBlockers(car);
             car.preventDelete = false;
-            SingletonBehaviour<CarSpawner>.Instance.DeleteCar(car);
+            CarLifecycle.Delete(car);
         }
 
         if (keep)

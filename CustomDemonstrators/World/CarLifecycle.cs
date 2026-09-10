@@ -1,5 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
+using DV.ServicePenalty;
+using DV.Utils;
 using HarmonyLib;
 
 namespace CustomDemonstrators.World;
@@ -29,6 +33,37 @@ internal static class CarLifecycle
                 UnityEngine.Object.Destroy(blocker.blockerObjectsParent);
             UnityEngine.Object.Destroy(blocker.gameObject);
         }
+    }
+
+    // Every car a garage or a demonstrator slot spawns is a uniqueCar, and DV stages a StagedOwnedCarDebt
+    // for one of those the moment it is destroyed - even a pristine one, because the debt data is filtered
+    // with returnEmptyDebtInsteadOfNull. It is deliberately unpayable: the game expects the car to come back,
+    // since a deleted uniqueCar's state is stashed under its livery and the returning car of that livery
+    // reclaims the old ID, which is what retires the staged entry. We delete these cars precisely so a
+    // *different* livery can take their place, so nothing ever reclaims the ID and the entry sits in the
+    // career manager forever at $0 with no way to clear it. Drop what this deletion staged.
+    internal static void Delete(TrainCar car)
+    {
+        var owned = SingletonBehaviour<OwnedCarsStateController>.Instance;
+        // Set difference rather than matching on the car's ID: deleting a tender cascades to its loco, so
+        // one call can stage more than one debt, and only the ones this call created may be dropped.
+        var before = owned != null
+            ? new HashSet<StagedOwnedCarDebt>(owned.currentlyDestroyedOwnedCarStates)
+            : null;
+
+        SingletonBehaviour<CarSpawner>.Instance.DeleteCar(car);
+
+        if (owned == null || before == null) return;
+
+        var staged = owned.currentlyDestroyedOwnedCarStates.Where(d => !before.Contains(d)).ToList();
+        if (staged.Count == 0) return;
+
+        owned.currentlyDestroyedOwnedCarStates.RemoveAll(d => !before.Contains(d));
+        owned.UpdateSortedList();
+
+        Main.Logger.Log($"Dropped {staged.Count} owned-car fee(s) staged by removing this car, which nothing "
+            + "would ever clear once its replacement takes a different ID: "
+            + string.Join(", ", staged.Select(d => d.ID)));
     }
 
     // Rebuilds a delegate equal to one the game subscribed itself, so it can be unsubscribed by value.

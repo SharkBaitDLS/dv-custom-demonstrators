@@ -154,6 +154,41 @@ internal static class SlotChoices
             Main.Settings.SetTenderId(locoId, tender.id);
     }
 
+    internal static void AddAdditionalGarage(string primaryId)
+    {
+        if (Main.Settings.IsAdditionalGarage(primaryId)) return;
+        Main.Settings.AddAdditionalGarage(primaryId);
+        FillFromTrainset(SlotTypes.WorkGarageId(primaryId), primaryId);
+    }
+
+    private static TrainCarLivery[] TrainsetOf(string liveryId) =>
+        GetLivery(liveryId) is TrainCarLivery livery ? CustomCarLoaderHelper.TrainsetFor(livery) : [];
+
+    // Appends the rest of a car's declared consist to a garage, leaving alone anything spawned elsewhere.
+    private static void FillFromTrainset(string garageId, string primaryId)
+    {
+        var claimed = new HashSet<string>(AllSpawnedIds());
+        foreach (var member in TrainsetOf(primaryId))
+        {
+            if (member != null && claimed.Add(member.id)) Main.Settings.AddExtraCar(garageId, member.id);
+        }
+    }
+
+    private static void InferExtrasForSwap(params (TrainCarLivery? Slot, string VacatedId)[] sides)
+    {
+        foreach (var (slot, vacatedId) in sides)
+        {
+            if (slot == null || GarageIdForSlot(slot) is not string garageId) continue;
+            foreach (var member in TrainsetOf(vacatedId)) Main.Settings.RemoveExtraCar(garageId, member.id);
+        }
+
+        foreach (var (slot, _) in sides)
+        {
+            if (slot == null || GarageIdForSlot(slot) is not string garageId) continue;
+            FillFromTrainset(garageId, CurrentSpawnId(slot));
+        }
+    }
+
     // CCL as the primary source of truth, anything without a configured trainset falls back to the game's
     // <livery>A + <livery>B convention.
     internal static TrainCarLivery? AutoTender(TrainCarLivery loco)
@@ -370,6 +405,7 @@ internal static class SlotChoices
             SetSpawn(livery, vacatedId);
 
         InferTendersForSwap(slot, livery);
+        InferExtrasForSwap((slot, vacatedId), (livery, targetId));
 
         RestorationPartsCustomizer.RevertSlotCargo(slot.id);
         if (livery != null)

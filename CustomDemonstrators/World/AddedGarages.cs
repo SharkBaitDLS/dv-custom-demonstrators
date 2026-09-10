@@ -1,8 +1,10 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using DV;
 using DV.Garages;
 using DV.ThingTypes;
+using DV.Utils;
 using UnityEngine;
 using CustomDemonstrators.Saves;
 using CustomDemonstrators.Slots;
@@ -131,7 +133,7 @@ internal static class AddedGarages
             return false;
         }
 
-        if (GarageHomes.Placement(garageId, primaryId) is not (Vector3, float) placement)
+        if (GarageHomes.Placement(garageId, primaryId) is not Placement placement)
         {
             Main.Logger.Warning($"Additional garage '{primaryId}' was skipped: it has nowhere to stand. "
                 + "Set its placement in the mod menu, standing where you want it.");
@@ -189,6 +191,8 @@ internal static class AddedGarages
             built.Spawner.AllowSpawning();
         }
 
+        SpawnCars(built.Spawner);
+
         Main.Logger.Log($"Built an additional garage for {string.Join(" + ", liveries.Select(l => l.id))}"
             + (license != null ? $", which opens with the {license.id} license." : ", already open."));
         return true;
@@ -202,7 +206,7 @@ internal static class AddedGarages
         var garageId = SlotTypes.WorkGarageId(primaryId);
 
         // A garage whose placement was cleared has nowhere to be, which is the same as not having one.
-        if (GarageHomes.Placement(garageId, primaryId) is not (Vector3 offset, float yaw) placement)
+        if (GarageHomes.Placement(garageId, primaryId) is not Placement placement)
         {
             Main.Logger.Log($"The additional garage for {primaryId} no longer has a placement, "
                 + "so it is being taken apart.");
@@ -214,8 +218,8 @@ internal static class AddedGarages
         bool changed = false;
 
         if (built.Home != null
-            && (built.Home.transform.localPosition != offset
-                || built.Home.transform.localRotation != Quaternion.Euler(0f, yaw, 0f)))
+            && (built.Home.transform.localPosition != placement.Offset
+                || built.Home.transform.localRotation != Quaternion.Euler(0f, placement.Yaw, 0f)))
         {
             GarageHomes.PlaceHome(built.Home, placement);
             Main.Logger.Log($"Moved the additional garage for {primaryId}. Any car it already spawned stays "
@@ -232,7 +236,29 @@ internal static class AddedGarages
             changed = true;
         }
 
+        if (changed) SpawnCars(built.Spawner);
+
         return changed;
+    }
+
+    private static void SpawnCars(GarageCarSpawner? spawner)
+    {
+        if (spawner == null) return;
+        SingletonBehaviour<CoroutineManager>.Instance.Run(SpawnCarsWhenClear(spawner));
+    }
+
+    private static IEnumerator SpawnCarsWhenClear(GarageCarSpawner spawner)
+    {
+        yield return null;
+        while (spawner != null && !AStartGameData.carsAndJobsLoadingFinished) yield return null;
+
+        if (spawner == null || !GarageUnlocks.IsSpawningAllowed(spawner)) yield break;
+
+        var spawned = spawner.ForceCarsRespawn();
+        if (spawned == null || spawned.Count == 0) yield break;
+
+        Main.Logger.Log($"The additional garage {spawner.garageType.id} spawned {spawned.Count} car(s) "
+            + "rather than waiting for the player to walk into its spawn radius.");
     }
 
     // What the comms radio charges to summon this garage's cars. Like the game's own garages the price is

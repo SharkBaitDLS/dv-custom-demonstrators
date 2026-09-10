@@ -4,6 +4,7 @@ using System.Linq;
 using DV.Utils;
 using UnityEngine;
 using CustomDemonstrators.Saves;
+using CustomDemonstrators.World;
 
 namespace CustomDemonstrators.Slots;
 
@@ -67,21 +68,29 @@ internal static class MuseumStalls
     private static bool IsStall(string? value) =>
         !string.IsNullOrEmpty(value) && !PlacedHomes.IsPlacement(value);
 
-    internal static (Vector3 Offset, float Yaw)? PlacementFor(string locoId) =>
+    internal static Placement? PlacementFor(string locoId) =>
         PlacedHomes.Decode(_saved.Get(locoId));
 
     // Whether loading with these settings would throw away a hand placement the save is holding. That is the
     // one direction that loses information: settings which know nothing of where a slot stands would clear
     // the save's record and drop the slot into a stall, or the template's. A placement that merely differs is
     // a move the player made in the menu, and still applies on the next load like any other setting.
-    internal static bool WouldErasePlacement(string locoId, Vector3? home) =>
+    internal static bool WouldErasePlacement(string locoId, Placement? home) =>
         home == null && PlacementFor(locoId) != null;
+
+    // Whether the settings put a slot somewhere other than where the save has it standing.
+    internal static bool PlacementMoved(string locoId, Placement? home)
+    {
+        if (home is not Placement placement) return false;
+        if (PlacementFor(locoId) is not Placement saved) return true;
+        return saved.Offset != placement.Offset || !Mathf.Approximately(saved.Yaw, placement.Yaw);
+    }
 
     // Writes the player's current placement into the save, so the slot can be rebuilt. Clearing one gives the
     // slot back to the stalls, but must leave a stall entry alone — that isn't a placement to begin with.
-    internal static void RecordPlacement(string locoId, (Vector3 Offset, float Yaw)? placement)
+    internal static void RecordPlacement(string locoId, Placement? placement)
     {
-        if (placement is (Vector3 offset, float yaw)) _saved.Set(locoId, PlacedHomes.Encode(offset, yaw));
+        if (placement is Placement p) _saved.Set(locoId, PlacedHomes.Encode(p));
         else if (PlacementFor(locoId) != null) _saved.Set(locoId, null);
     }
 
