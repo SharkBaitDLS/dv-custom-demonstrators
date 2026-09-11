@@ -184,6 +184,9 @@ internal static class RestorationPartsCustomizer
 
     internal static string? BakedCargoChoice(string slotId) => _bakedCargo.Get(slotId);
 
+    internal static void MergeCargoChoicesFrom(SaveGameData other, ICollection<string> slotIds) =>
+        _bakedCargo.MergeFrom(other, slotIds);
+
     private static string? CargoChoice(string slotId)
     {
         if (!SaveGuard.AllowDemonstratorChanges()) return _bakedCargo.Get(slotId);

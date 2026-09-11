@@ -41,6 +41,9 @@ internal static class MuseumStalls
 
     internal static void Reset() => _saved.Reset();
 
+    internal static void MergeFrom(SaveGameData other, ICollection<string> slotIds) =>
+        _saved.MergeFrom(other, slotIds);
+
     // Hands a removed slot's stall back, so the next one added can have it.
     internal static void Release(string locoId) => _saved.Set(locoId, null);
 

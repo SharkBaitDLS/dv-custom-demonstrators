@@ -53,4 +53,27 @@ internal sealed class SavedMap(string keysKey, string valuesKey)
         data.SetStringArray(keysKey, [.. _entries.Keys]);
         data.SetStringArray(valuesKey, [.. _entries.Values]);
     }
+
+    // Takes the named entries from another save's copy of this map and leaves the rest alone
+    internal void MergeFrom(SaveGameData other, ICollection<string> ids)
+    {
+        if (ids.Count == 0) return;
+
+        var entries = Entries();
+        var keys = other.GetStringArray(keysKey);
+        var values = other.GetStringArray(valuesKey);
+
+        var theirs = new Dictionary<string, string>();
+        if (keys != null && values != null)
+        {
+            for (int i = 0; i < Math.Min(keys.Length, values.Length); i++) theirs[keys[i]] = values[i];
+        }
+
+        foreach (var id in ids)
+        {
+            if (theirs.TryGetValue(id, out var value)) entries[id] = value;
+            else entries.Remove(id);
+        }
+        Persist();
+    }
 }

@@ -11,7 +11,7 @@ namespace CustomDemonstrators.Saves;
 // Guards settings from being applied so that the mod is safe to enable on an existing save
 internal static class SaveGuard
 {
-    private const string DemonstratorFingerprintKey = "CustomDemonstrators_DemonstratorFingerprint";
+    internal const string DemonstratorFingerprintKey = "CustomDemonstrators_DemonstratorFingerprint";
     private const string GarageFingerprintKey = "CustomDemonstrators_GarageFingerprint";
 
     private static bool? _allowDemo;
@@ -44,7 +44,8 @@ internal static class SaveGuard
 
         var data = SaveState.Data();
         if (data == null) { undecided = true; return true; }
-        if (SaveState.IsNewSession) return WriteFingerprint(key, fingerprint);
+
+        if (SaveState.IsNewSession && !_fingerprintReplaced) return WriteFingerprint(key, fingerprint);
 
         return data.GetString(key) == fingerprint()
             && (alsoInSync?.Invoke() ?? true)
@@ -111,6 +112,15 @@ internal static class SaveGuard
         _forcedDemo = false;
         _allowGarage = null;
         _forcedGarage = false;
+        _fingerprintReplaced = false;
+    }
+
+    private static bool _fingerprintReplaced;
+
+    internal static void FingerprintReplaced()
+    {
+        Invalidate();
+        _fingerprintReplaced = true;
     }
 
     internal static void ForceApplyDemonstrators()

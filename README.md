@@ -54,6 +54,77 @@ private static void OnForceApplied(int kind)
 
 Call this from somewhere that runs after this mod has loaded — its `Load` if you list `CustomDemonstrators` in your `LoadAfter`, or lazily on first use if you'd rather not care about mod order. To unsubscribe later, hold onto the delegate you passed to `AddEventHandler` and hand it to `RemoveEventHandler`.
 
+### Re-reading this mod's save metadata
+
+Everything this mod remembers about a save is written under keys beginning with `CustomDemonstrators_`,
+and it reads them while the save is loading. A mod bringing demonstrators over from another save can have
+that record brought with them, and then ask for it to be read again.
+
+Do not copy the record key by key. The demonstrator fingerprint is one string covering every slot at once,
+so copying it would have the loaded save claim a configuration for demonstrators whose locomotives never
+moved, and the record would be describing a world that isn't there. `MergeDemonstratorsFrom` rebuilds it
+entry by entry instead, and splits the slot placements and parts cargo choices the same way. 
+
+`CargoIds` / `CargoValues` are reconciled rather than adopted, since the cargo types registered with the
+game this session are already holding the numbers it handed out. Those types are re-pointed to whatever
+the table now gives them, so a rewritten table takes effect immediately rather than at the next load.
+The one thing that cannot move is a number a car in the world is carrying, because a car records the
+number rather than the cargo, so the table is corrected to match.
+
+```csharp
+using CustomDemonstrators.Api;
+
+// The demonstrators being restored take their entry from the other save; every other slot keeps what this
+// save already said about it. saveIds are LocoRestorationController.SaveIDs as they appear in that save.
+SaveRecord.MergeDemonstratorsFrom(earlierSave, saveIds);
+SaveRecord.Reload();
+```
+
+### Bringing one forward into a new slot
+
+A demonstrator going back into the slot it came from displaces whatever stands in that slot now, which may
+be a restoration the player has put work into. `SlotOccupants` allows you to preview what that displacement
+would be, if any.
+
+A locomotive can be given a demonstrator slot of its own instead (if the museum has space available),
+leaving its old slot and the new loco in it untouched:
+
+```csharp
+// Ask before merging rather than after: both answers describe the world as it currently stands.
+var displaces = SaveRecord.SlotOccupants(earlierSave, saveIds);
+var reasons = SaveRecord.NewSlotEligibility(earlierSave, saveIds);  // null against one that can have a slot
+
+SaveRecord.MergeDemonstratorsFrom(earlierSave, inPlace, asNewSlots);
+SaveRecord.Reload();
+```
+
+### Doing it by reflection
+
+To avoid a hard dependency on this mod:
+
+```csharp
+var mod = UnityModManager.FindMod("CustomDemonstrators");
+var api = mod != null && mod.Active && mod.HasAssembly
+    ? mod.Assembly.GetType("CustomDemonstrators.Api.SaveRecord")
+    : null;
+if (api != null)
+{
+    api.GetMethod("MergeDemonstratorsFrom", BindingFlags.Public | BindingFlags.Static)
+        ?.Invoke(null, [earlierSave, saveIds]);
+    api.GetMethod("Reload", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, null);
+}
+```
+
+Bind the three-argument `MergeDemonstratorsFrom` by its signature, since it overloads the two-argument one:
+
+```csharp
+api.GetMethod("MergeDemonstratorsFrom", BindingFlags.Public | BindingFlags.Static, null,
+    [typeof(JObject), typeof(IEnumerable<string>), typeof(IEnumerable<string>)], null);
+```
+
+A build of this mod that predates any of these returns `null` from `GetMethod` rather than failing, so
+check for that and fall back to leaving the record for the next load.
+
 ## Building
 
 Building the project requires some initial setup, after which running `dotnet build` will do a Debug build or running `dotnet build -c Release` will do a Release build.

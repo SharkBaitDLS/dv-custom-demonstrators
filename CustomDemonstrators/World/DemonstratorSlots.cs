@@ -137,22 +137,15 @@ internal static class DemonstratorSlots
         if (changed) types.RecalculateCaches();
     }
 
-    private static bool Build(string locoId, LocoRestorationController template, LocoRestorationSpawnPoint[] spawnPoints)
+    // Why a livery can't be given a demonstrator slot of its own, or null if it can
+    internal static string? SlotUnavailableReason(string locoId, TrainCarLivery? tender)
     {
         var types = Globals.G?.Types;
-        if (types == null) return false;
+        if (types == null) return "the game's types aren't loaded yet";
 
         var loco = Livery(locoId);
-        if (loco == null)
-        {
-            Main.Logger.Warning($"Additional demonstrator '{locoId}' was skipped: no such livery is loaded.");
-            return false;
-        }
+        if (loco == null) return "no such livery is loaded";
 
-        var tender = TenderFor(locoId);
-
-        // If we're in a desynced state reading from baked data for demos but live data for garages or
-        // visa versa, we can end up colliding on ownership. This unfucks that state and favors demos.
         foreach (var claimed in new[] { loco, tender })
         {
             if (claimed == null) continue;
@@ -162,9 +155,26 @@ internal static class DemonstratorSlots
             if (owner == null && spawner == null) continue;
 
             var by = owner?.id ?? spawner.garageType?.id ?? "another garage";
-            Main.Logger.Warning($"Additional demonstrator '{locoId}' was skipped: {claimed.id} is already spawned by garage {by}.");
+            return $"{claimed.id} is already spawned by garage {by}";
+        }
+
+        return null;
+    }
+
+    private static bool Build(string locoId, LocoRestorationController template, LocoRestorationSpawnPoint[] spawnPoints)
+    {
+        var types = Globals.G?.Types;
+        if (types == null) return false;
+
+        var tender = TenderFor(locoId);
+        if (SlotUnavailableReason(locoId, tender) is string reason)
+        {
+            Main.Logger.Warning($"Additional demonstrator '{locoId}' was skipped: {reason}.");
             return false;
         }
+
+        var loco = Livery(locoId);
+        if (loco == null) return false;
 
         var garage = SlotTypes.GetOrCreateGarage(locoId, loco, tender, template.garageSpawner.garageType);
         GarageLiveries.ApplySummonPrice(garage, VanillaGarages.DefaultDemonstratorSummonPrice());

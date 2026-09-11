@@ -149,9 +149,10 @@ internal static class DemonstratorSetup
     {
         var loco = OriginalLoco(controller);
         if (loco == null) return true;
-        var desiredLoco = Main.Settings.GetReplacement(loco) ?? loco;
-        var desiredTender = SlotChoices.ResolveTender(loco.id, OriginalTender(controller));
-        return controller.locoLivery == desiredLoco && controller.secondCarLivery == desiredTender;
+
+        if (!Resolve(loco, OriginalTender(controller), loco.id, out var replacement, out var tender)) return true;
+
+        return controller.locoLivery == (replacement ?? loco) && controller.secondCarLivery == tender;
     }
 
     internal static TrainCarLivery? OriginalLoco(LocoRestorationController controller) =>

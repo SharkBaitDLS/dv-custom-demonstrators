@@ -178,4 +178,105 @@ internal static class SlotTypes
     }
 
     internal static IReadOnlyDictionary<string, int> CargoMapping() => _cargoV1 ?? LoadCargoMapping();
+
+    // Re-reads the id-to-number table from the save and brings the cargo types registered this session into
+    // line with it, for when something outside this mod has rewritten that table in the loaded save.
+    internal static void ReconcileCargoNumbers()
+    {
+        var types = Globals.G?.Types;
+        if (types?.cargos == null || SaveState.Data() == null) return;
+
+        var registered = types.cargos.Where(IsSlotCargo).ToList();
+        var wanted = LoadCargoMapping();
+        if (registered.Count == 0 && wanted.Count == 0) return;
+
+        var carried = CarriedNumbers();
+        var final = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        var used = new HashSet<int>(types.cargos
+            .Where(cargo => cargo != null && !IsSlotCargo(cargo))
+            .Select(cargo => (int)cargo.v1));
+
+        foreach (var cargo in registered)
+        {
+            if (!carried.Contains((int)cargo.v1)) continue;
+            final[cargo.id] = (int)cargo.v1;
+            used.Add((int)cargo.v1);
+        }
+
+        Claim(final, used, wanted.Where(entry => !final.ContainsKey(entry.Key)));
+        Claim(final, used, registered.Where(cargo => !final.ContainsKey(cargo.id))
+            .Select(cargo => new KeyValuePair<string, int>(cargo.id, (int)cargo.v1)));
+
+        if (!IsUnique(registered, final, used))
+        {
+            Main.Logger.Warning("Refused to re-point the parts cargo numbers: the table in this save would "
+                + "give two cargos the same number. It will be read normally on the next load.");
+            return;
+        }
+
+        Repoint(registered, final);
+
+        _cargoV1 = final;
+        SaveCargoMapping();
+        types.RecalculateCaches();
+    }
+
+    private static bool IsUnique(List<CargoType_v2> registered, Dictionary<string, int> final,
+        HashSet<int> used)
+    {
+        var taken = new HashSet<int>(used.Except(final.Values));
+        foreach (var cargo in registered)
+        {
+            if (!taken.Add(final.TryGetValue(cargo.id, out var number) ? number : (int)cargo.v1)) return false;
+        }
+        return true;
+    }
+
+    // Each id at the number it asked for, or the first free one above everything taken when that has gone.
+    private static void Claim(Dictionary<string, int> final, HashSet<int> used,
+        IEnumerable<KeyValuePair<string, int>> entries)
+    {
+        foreach (var entry in entries)
+        {
+            if (final.ContainsKey(entry.Key)) continue;
+            if (used.Add(entry.Value))
+            {
+                final[entry.Key] = entry.Value;
+                continue;
+            }
+
+            int free = FreeV1(used);
+            used.Add(free);
+            final[entry.Key] = free;
+        }
+    }
+
+    private static void Repoint(List<CargoType_v2> registered, Dictionary<string, int> final)
+    {
+        _slotCargoValues.Clear();
+        foreach (var cargo in registered)
+        {
+            if (!final.TryGetValue(cargo.id, out var number)) number = (int)cargo.v1;
+
+            if ((int)cargo.v1 != number)
+            {
+                Main.Logger.Log($"Parts cargo {cargo.id} moved from {(int)cargo.v1} to {number}, to match the "
+                    + "table the loaded save now carries.");
+                cargo.v1 = (CargoType)number;
+            }
+            _slotCargoValues.Add(number);
+        }
+    }
+
+    // Every number any car in the world is loaded with, to ensure they are not rug-pulled
+    private static HashSet<int> CarriedNumbers()
+    {
+        var carried = new HashSet<int>();
+        foreach (var car in CarSpawner.Instance?.AllCars ?? [])
+        {
+            if (car != null && car.LoadedCargo != CargoType.None) carried.Add((int)car.LoadedCargo);
+        }
+        return carried;
+    }
 }

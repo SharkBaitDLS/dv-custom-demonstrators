@@ -71,7 +71,7 @@ internal static class SaveConfig
         return sb.ToString();
     }
 
-    private static Dictionary<string, (string SpawnId, string? TenderId)>? ParseDemonstrators(string? fingerprint)
+    internal static Dictionary<string, (string SpawnId, string? TenderId)>? ParseDemonstrators(string? fingerprint)
     {
         if (string.IsNullOrEmpty(fingerprint)) return null;
 
