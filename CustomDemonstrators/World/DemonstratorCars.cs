@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using DV.Garages;
 using DV.LocoRestoration;
 using DV.Shops;
-using DV.Utils;
 using HarmonyLib;
 
 namespace CustomDemonstrators.World;
@@ -40,6 +39,7 @@ internal static class DemonstratorCars
 
             CarLifecycle.DestroyStaleBlockers(car);
             car.preventDelete = false;
+            CarLifecycle.ForgetStateOnDelete(car);
             CarLifecycle.Delete(car);
         }
 

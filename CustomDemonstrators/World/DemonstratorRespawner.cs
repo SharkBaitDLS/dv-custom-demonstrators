@@ -207,6 +207,7 @@ internal static class DemonstratorRespawner
 
         CarLifecycle.DestroyStaleBlockers(loco);
         CarLifecycle.DestroyStaleBlockers(secondCar);
+        CarLifecycle.ForgetStateOnDelete(loco, secondCar);
 
         Main.Logger.Log($"Destroying demonstrator {loco.name} [{loco.ID}] to force a respawn.");
         // Tearing down the tender cascades to the parent loco, but not visa versa,

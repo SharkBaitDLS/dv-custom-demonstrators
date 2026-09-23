@@ -1,10 +1,13 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using DV.Logic.Job;
 using DV.ServicePenalty;
 using DV.Utils;
 using HarmonyLib;
+using Newtonsoft.Json.Linq;
 
 namespace CustomDemonstrators.World;
 
@@ -64,6 +67,53 @@ internal static class CarLifecycle
         Main.Logger.Log($"Dropped {staged.Count} owned-car fee(s) staged by removing this car, which nothing "
             + "would ever clear once its replacement takes a different ID: "
             + string.Join(", ", staged.Select(d => d.ID)));
+    }
+
+    private static readonly FieldInfo? DeletedUniqueField =
+        AccessTools.Field(typeof(CarSpawner), "deletedUniqueCarLiveryToLastCarState");
+
+    private static readonly HashSet<TrainCar> _forgetting = [];
+    private static CarSpawner? _watching;
+
+    // Deleting a uniqueCar stashes its whole state under its livery and reserves its loco ID,
+    // so that it will respawn in the same state with the same ID. When we want to delete one
+    // for real and not have it respawn, we clean out that state so that if it's re-added as
+    // a demonstrator later it doesn't show back up in its prior (possibly restored) state.
+    internal static void ForgetStateOnDelete(params TrainCar?[] cars)
+    {
+        _forgetting.RemoveWhere(car => car == null);
+        foreach (var car in cars)
+        {
+            if (car != null) _forgetting.Add(car);
+        }
+
+        var spawner = SingletonBehaviour<CarSpawner>.Instance;
+        if (_forgetting.Count == 0 || spawner == null || spawner == _watching) return;
+
+        _watching?.CarAboutToBeDeleted -= OnCarAboutToBeDeleted;
+        spawner.CarAboutToBeDeleted += OnCarAboutToBeDeleted;
+        _watching = spawner;
+    }
+
+    private static void OnCarAboutToBeDeleted(TrainCar car)
+    {
+        if (_forgetting.Remove(car)) ForgetStashedState(car);
+    }
+
+    private static void ForgetStashedState(TrainCar car)
+    {
+        if (car.carLivery == null
+            || DeletedUniqueField?.GetValue(SingletonBehaviour<CarSpawner>.Instance) is not IDictionary stash
+            || !stash.Contains(car.carLivery))
+        {
+            return;
+        }
+
+        var stashedId = (stash[car.carLivery] as JObject)?["id"]?.ToString();
+        stash.Remove(car.carLivery);
+        if (!string.IsNullOrEmpty(stashedId)) SingletonBehaviour<IdGenerator>.Instance.UnReserveCarId(stashedId);
+
+        Main.Logger.Log($"Dropped the stashed state of {car.carLivery.id} [{stashedId}].");
     }
 
     // Rebuilds a delegate equal to one the game subscribed itself, so it can be unsubscribed by value.
