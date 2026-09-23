@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using DV.Customization.Gadgets;
 using DV.Logic.Job;
 using DV.ServicePenalty;
 using DV.Utils;
@@ -67,6 +68,36 @@ internal static class CarLifecycle
         Main.Logger.Log($"Dropped {staged.Count} owned-car fee(s) staged by removing this car, which nothing "
             + "would ever clear once its replacement takes a different ID: "
             + string.Join(", ", staged.Select(d => d.ID)));
+    }
+
+    internal static int SweepGadgetsToLostAndFound(TrainCar? car)
+    {
+        var storage = SingletonBehaviour<StorageController>.Instance;
+        var custom = car?.Customization;
+        if (storage == null || custom == null) return 0;
+
+        var gadgets = custom.Customizers.OfType<GadgetBase>().Where(g => g != null).ToList();
+        var items = gadgets.Select(g => g.GadgetItem?.Item).Where(i => i != null).ToList();
+        if (items.Count == 0) return 0;
+
+        foreach (var gadget in gadgets)
+        {
+            if (gadget.IsLinked) gadget.ForceRemove(reparentToTrainCar: false);
+        }
+
+        var swept = 0;
+        foreach (var item in items)
+        {
+            if (item == null || storage.IsInStorageLostAndFound(item)) continue;
+
+            storage.AddItemToLostAndFound(item);
+            if (!storage.StorageLostAndFound.itemsActiveOrActivating) item.gameObject.SetActive(false);
+            swept++;
+        }
+
+        if (swept > 0)
+            Main.Logger.Log($"Moved {swept} gadget(s) fitted to {car!.name} [{car.ID}] to lost and found.");
+        return swept;
     }
 
     private static readonly FieldInfo? DeletedUniqueField =

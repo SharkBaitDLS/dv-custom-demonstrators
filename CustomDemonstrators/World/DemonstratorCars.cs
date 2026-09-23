@@ -40,6 +40,7 @@ internal static class DemonstratorCars
             CarLifecycle.DestroyStaleBlockers(car);
             car.preventDelete = false;
             CarLifecycle.ForgetStateOnDelete(car);
+            CarLifecycle.SweepGadgetsToLostAndFound(car);
             CarLifecycle.Delete(car);
         }
 
