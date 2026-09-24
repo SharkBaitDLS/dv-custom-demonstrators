@@ -18,12 +18,8 @@ internal static class SaveAdoption
         var baked = SaveConfig.Demonstrators;
         var claimed = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var (garage, isDemonstrator, liveries) in VanillaGarages.Groups)
+        foreach (var (garage, primary) in VanillaGarages.Demonstrators)
         {
-            if (!isDemonstrator) continue;
-            var primary = liveries.FirstOrDefault();
-            if (primary == null) continue;
-
             // A slot the save doesn't mention was never customized in it, so it goes back to its original.
             var (SpawnId, TenderId) = Lookup(baked, primary.id) ?? (primary.id, null);
             SlotChoices.SetSpawn(primary.id, SpawnId);
@@ -219,12 +215,8 @@ internal static class SaveAdoption
 
     private static void ReleaseDemonstratorClaims(HashSet<string> claimed)
     {
-        foreach (var (garage, isDemonstrator, liveries) in VanillaGarages.Groups)
+        foreach (var (garage, primary) in VanillaGarages.Demonstrators)
         {
-            if (!isDemonstrator) continue;
-            var primary = liveries.FirstOrDefault();
-            if (primary == null) continue;
-
             if (claimed.Contains(SlotChoices.CurrentSpawnId(primary)) && !claimed.Contains(primary.id))
             {
                 Main.Logger.Warning($"Demonstrator {primary.id} gave up {SlotChoices.CurrentSpawnId(primary)}: "
@@ -232,7 +224,7 @@ internal static class SaveAdoption
                 SlotChoices.SetSpawn(primary.id, primary.id);
             }
 
-            var tender = SlotChoices.ResolveTender(primary.id, VanillaGarages.OriginalTender(garage));
+            var tender = SlotChoices.ResolveTender(garage, primary);
             if (tender != null && claimed.Contains(tender.id))
                 Main.Settings.SetTenderId(primary.id, null);
         }

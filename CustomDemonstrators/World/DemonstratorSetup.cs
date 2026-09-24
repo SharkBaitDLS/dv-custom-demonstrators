@@ -1,6 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
-using DV;
 using DV.LocoRestoration;
 using DV.ThingTypes;
 using CustomDemonstrators.Saves;
@@ -154,6 +152,9 @@ internal static class DemonstratorSetup
 
         return controller.locoLivery == (replacement != null ? replacement : loco) && controller.secondCarLivery == tender;
     }
+
+    // A slot is keyed, in the settings and the save's record alike, by the loco it originally stood for
+    internal static string? SlotId(LocoRestorationController controller) => GameTypes.Id(OriginalLoco(controller));
 
     internal static TrainCarLivery? OriginalLoco(LocoRestorationController controller) =>
         GameTypes.GarageOf(controller) is GarageType_v2 g ? VanillaGarages.PrimaryLoco(g) : controller.locoLivery;

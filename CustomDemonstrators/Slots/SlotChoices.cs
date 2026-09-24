@@ -112,6 +112,9 @@ internal static class SlotChoices
     internal static bool IsValidTender(TrainCarLivery livery) =>
         CustomCarLoaderHelper.IsCustomCar(livery) && CarTypes.IsTender(livery);
 
+    internal static TrainCarLivery? ResolveTender(GarageType_v2 garage, TrainCarLivery primary) =>
+        ResolveTender(primary.id, VanillaGarages.OriginalTender(garage));
+
     internal static TrainCarLivery? ResolveTender(string slotId, TrainCarLivery? originalTender)
     {
         var id = Main.Settings.GetTenderId(slotId);
@@ -231,7 +234,7 @@ internal static class SlotChoices
                 var primary = liveries.FirstOrDefault();
                 if (primary == null) continue;
                 yield return CurrentSpawnId(primary);
-                var second = ResolveTender(primary.id, VanillaGarages.OriginalTender(garage));
+                var second = ResolveTender(garage, primary);
                 if (second != null) yield return second.id;
             }
             else
@@ -319,12 +322,9 @@ internal static class SlotChoices
     private static HashSet<string> TenderIds()
     {
         var ids = new HashSet<string>();
-        foreach (var (garage, isDemonstrator, liveries) in VanillaGarages.Groups)
+        foreach (var (garage, primary) in VanillaGarages.Demonstrators)
         {
-            if (!isDemonstrator) continue;
-            var primary = liveries.FirstOrDefault();
-            if (primary == null) continue;
-            var second = ResolveTender(primary.id, VanillaGarages.OriginalTender(garage));
+            var second = ResolveTender(garage, primary);
             if (second != null) ids.Add(second.id);
         }
         return ids;
@@ -366,12 +366,8 @@ internal static class SlotChoices
     // After the flatcar changes, drop any explicit parts-cargo overrides the new flatcar can't carry.
     internal static void PruneInvalidCargoOverrides()
     {
-        foreach (var (_, isDemonstrator, liveries) in VanillaGarages.Groups)
+        foreach (var (_, primary) in VanillaGarages.Demonstrators)
         {
-            if (!isDemonstrator) continue;
-            var primary = liveries.FirstOrDefault();
-            if (primary == null) continue;
-
             var choice = Main.Settings.GetPartsCargoId(primary.id);
             // the default and the generic crate are always loadable since we enforce that flatcar selections
             // can at minimum carry all vanilla parts cargo

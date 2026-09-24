@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using CustomDemonstrators.Slots;
 
 namespace CustomDemonstrators.Saves;
 
@@ -32,7 +35,7 @@ internal static class SaveConfig
             if (_parsed) return _demo;
             if (SaveState.Data() == null) return null;
             _parsed = true;
-            _demo = ParseDemonstrators(SaveGuard.StoredDemonstratorFingerprint);
+            _demo = DemonstratorsIn(SaveState.Data()!);
             return _demo;
         }
     }
@@ -59,19 +62,41 @@ internal static class SaveConfig
         _parsedGarages = false;
     }
 
-    internal static string SerializeDemonstrators(IEnumerable<(string PrimaryId, string SpawnId, string? TenderId)> entries)
+    // The demonstrator record held by any save, this one or another. Null on a save the mod never touched.
+    internal static Dictionary<string, (string SpawnId, string? TenderId)>? DemonstratorsIn(SaveGameData data) =>
+        ParseDemonstrators(data.GetString(SaveGuard.DemonstratorFingerprintKey));
+
+    // Replaces the loaded save's demonstrator record, returning false if it already said exactly this.
+    internal static bool WriteDemonstrators(SaveGameData data,
+        IReadOnlyDictionary<string, (string SpawnId, string? TenderId)> entries)
     {
+        var serialized = SerializeDemonstrators(entries);
+        if (data.GetString(SaveGuard.DemonstratorFingerprintKey) == serialized) return false;
+
+        data.SetString(SaveGuard.DemonstratorFingerprintKey, serialized);
+        _demo = null;
+        _parsed = false;
+        return true;
+    }
+
+    internal static string SerializeDemonstrators(IReadOnlyDictionary<string, (string SpawnId, string? TenderId)> entries)
+    {
+        var vanilla = VanillaGarages.Demonstrators.Select((d, i) => (d.Primary.id, i))
+            .ToDictionary(d => d.id, d => d.i, StringComparer.Ordinal);
+
         var sb = new StringBuilder();
-        foreach (var (primaryId, spawnId, tenderId) in entries)
+        foreach (var entry in entries
+            .OrderBy(e => vanilla.TryGetValue(e.Key, out var i) ? i : int.MaxValue)
+            .ThenBy(e => e.Key, StringComparer.Ordinal))
         {
-            sb.Append(primaryId).Append(SpawnSeparator)
-              .Append(spawnId).Append(TenderSeparator)
-              .Append(tenderId ?? NoTender).Append(EntrySeparator);
+            sb.Append(entry.Key).Append(SpawnSeparator)
+              .Append(entry.Value.SpawnId).Append(TenderSeparator)
+              .Append(entry.Value.TenderId ?? NoTender).Append(EntrySeparator);
         }
         return sb.ToString();
     }
 
-    internal static Dictionary<string, (string SpawnId, string? TenderId)>? ParseDemonstrators(string? fingerprint)
+    private static Dictionary<string, (string SpawnId, string? TenderId)>? ParseDemonstrators(string? fingerprint)
     {
         if (string.IsNullOrEmpty(fingerprint)) return null;
 

@@ -8,16 +8,6 @@ namespace CustomDemonstrators.Saves;
 
 internal static class RecordMerge
 {
-    private static readonly HashSet<string> _pending = [];
-
-    // The slots the last merge rewrote, which the caller is expected to put cars into itself.
-    internal static HashSet<string> TakePendingSlots()
-    {
-        var taken = new HashSet<string>(_pending);
-        _pending.Clear();
-        return taken;
-    }
-
     // Bring part of one save's demonstrator record into another.
     //
     // The placements and parts cargo choices are keyed by the same slot ids and follow the same split, so the
@@ -25,14 +15,18 @@ internal static class RecordMerge
     //
     // A demonstrator named in saveIds goes back into the slot it came from, displacing whatever occupies
     // that slot. One named in asNewSlots is given a slot of its own instead if possible.
-    internal static bool Demonstrators(JObject theirs, IEnumerable<string> saveIds, IEnumerable<string> asNewSlots)
+    //
+    // Returns the slots it rewrote, which the caller is expected to put cars into itself, or null if there
+    // was nothing to merge.
+    internal static HashSet<string>? Demonstrators(
+        JObject theirs, IEnumerable<string> saveIds, IEnumerable<string> asNewSlots)
     {
         var data = SaveState.Data();
-        if (data == null) return false;
+        if (data == null) return null;
 
         var other = SaveGameData.LoadFromJson(theirs);
-        var theirEntries = SaveConfig.ParseDemonstrators(other.GetString(SaveGuard.DemonstratorFingerprintKey));
-        if (theirEntries == null) return false;
+        var theirEntries = SaveConfig.DemonstratorsIn(other);
+        if (theirEntries == null) return null;
 
         // Enforce that a livery can only occupy one slot
         var added = new HashSet<string>(asNewSlots);
@@ -48,26 +42,24 @@ internal static class RecordMerge
             .Select(entry => (SlotId: entry.Value.SpawnId, entry.Value.TenderId))
             .ToList();
 
-        if (inPlace.Count == 0 && ownSlots.Count == 0) return false;
+        if (inPlace.Count == 0 && ownSlots.Count == 0) return null;
 
-        var merged = SaveConfig.ParseDemonstrators(SaveGuard.StoredDemonstratorFingerprint) ?? [];
+        var merged = SaveConfig.DemonstratorsIn(data) ?? [];
 
         foreach (var slotId in inPlace) merged[slotId] = theirEntries[slotId];
         foreach (var (slotId, tenderId) in ownSlots) merged[slotId] = (slotId, tenderId);
 
-        data.SetString(SaveGuard.DemonstratorFingerprintKey, SaveConfig.SerializeDemonstrators(
-            merged.Select(entry => (entry.Key, entry.Value.SpawnId, entry.Value.TenderId))));
+        SaveConfig.WriteDemonstrators(data, merged);
 
         var touched = inPlace.Concat(ownSlots.Select(slot => slot.SlotId)).ToList();
         MuseumStalls.MergeFrom(other, touched);
         RestorationPartsCustomizer.MergeCargoChoicesFrom(other, touched);
-        _pending.UnionWith(touched);
 
         Main.Logger.Log($"Merged {touched.Count} demonstrator(s) from another save's record into this one: "
             + string.Join(", ", touched)
             + (ownSlots.Count > 0 ? $" ({ownSlots.Count} into slot(s) of their own)" : "")
             + ". Every other slot kept what this save already said about it.");
-        return true;
+        return [.. touched];
     }
 
     // What each of these demonstrators would displace by going back into the slot it came from
@@ -76,7 +68,7 @@ internal static class RecordMerge
         var result = new Dictionary<string, string>();
 
         var other = SaveGameData.LoadFromJson(theirs);
-        var theirEntries = SaveConfig.ParseDemonstrators(other.GetString(SaveGuard.DemonstratorFingerprintKey));
+        var theirEntries = SaveConfig.DemonstratorsIn(other);
         if (theirEntries == null) return result;
 
         var wanted = new HashSet<string>(saveIds);
@@ -97,7 +89,7 @@ internal static class RecordMerge
         var result = new Dictionary<string, string?>();
 
         var other = SaveGameData.LoadFromJson(theirs);
-        var theirEntries = SaveConfig.ParseDemonstrators(other.GetString(SaveGuard.DemonstratorFingerprintKey));
+        var theirEntries = SaveConfig.DemonstratorsIn(other);
         var free = FreeStalls();
 
         foreach (var saveId in saveIds)

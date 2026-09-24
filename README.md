@@ -54,49 +54,49 @@ private static void OnForceApplied(int kind)
 
 Call this from somewhere that runs after this mod has loaded — its `Load` if you list `CustomDemonstrators` in your `LoadAfter`, or lazily on first use if you'd rather not care about mod order. To unsubscribe later, hold onto the delegate you passed to `AddEventHandler` and hand it to `RemoveEventHandler`.
 
-### Re-reading this mod's save metadata
+### Demonstrators this mod didn't place
 
-Everything this mod remembers about a save is written under keys beginning with `CustomDemonstrators_`,
-and it reads them while the save is loading. A mod bringing demonstrators over from another save can have
-that record brought with them, and then ask for it to be read again.
+Everything this mod remembers about a save is written under keys beginning with `CustomDemonstrators_`.
+The demonstrator record follows the restorations as they actually stand: it's rewritten from the live
+`LocoRestorationController`s whenever the game saves, and whenever one is handed a restoration through
+`LoadData` while pointed at a locomotive the record didn't give it. A mod that retargets a restoration
+(`locoLivery` / `secondCarLivery`) therefore needs to do nothing for this mod to keep up. Retarget before
+calling `LoadData` and the slot's quest board, parts cargo and garage follow immediately; otherwise they
+follow on the next load.
 
-Do not copy the record key by key. The demonstrator fingerprint is one string covering every slot at once,
-so copying it would have the loaded save claim a configuration for demonstrators whose locomotives never
-moved, and the record would be describing a world that isn't there. `MergeDemonstratorsFrom` rebuilds it
-entry by entry instead, and splits the slot placements and parts cargo choices the same way. 
+Apart from the parts cargo table below, don't write these keys yourself. They're read while the save loads,
+so a record written afterwards would describe a world that isn't there.
 
-`CargoIds` / `CargoValues` are reconciled rather than adopted, since the cargo types registered with the
-game this session are already holding the numbers it handed out. Those types are re-pointed to whatever
-the table now gives them, so a rewritten table takes effect immediately rather than at the next load.
-The one thing that cannot move is a number a car in the world is carrying, because a car records the
-number rather than the cargo, so the table is corrected to match.
+### Restoring demonstrators from another save
+
+A restored demonstrator may have stood in a slot that holds a different locomotive in the loaded save, or
+in one of this mod's own slots that the loaded save doesn't have. Only this mod can point a slot at it, so
+ask it to before looking for the restoration by its `SaveID`:
 
 ```csharp
 using CustomDemonstrators.Api;
 
-// The demonstrators being restored take their entry from the other save; every other slot keeps what this
-// save already said about it. saveIds are LocoRestorationController.SaveIDs as they appear in that save.
-SaveRecord.MergeDemonstratorsFrom(earlierSave, saveIds);
-SaveRecord.Reload();
-```
-
-### Bringing one forward into a new slot
-
-A demonstrator going back into the slot it came from displaces whatever stands in that slot now, which may
-be a restoration the player has put work into. `SlotOccupants` allows you to preview what that displacement
-would be, if any.
-
-A locomotive can be given a demonstrator slot of its own instead (if the museum has space available),
-leaving its old slot and the new loco in it untouched:
-
-```csharp
-// Ask before merging rather than after: both answers describe the world as it currently stands.
+// Ask first: both answers describe the world as it currently stands.
+// saveIds are LocoRestorationController.SaveIDs as they appear in the earlier save.
 var displaces = SaveRecord.SlotOccupants(earlierSave, saveIds);
 var reasons = SaveRecord.NewSlotEligibility(earlierSave, saveIds);  // null against one that can have a slot
 
-SaveRecord.MergeDemonstratorsFrom(earlierSave, inPlace, asNewSlots);
-SaveRecord.Reload();
+// Demonstrators in inPlace go back into the slot they came from, displacing whatever stands there now.
+// Those in asNewSlots are given a slot of their own instead, leaving their old slot as it is.
+if (SaveRecord.RestoreDemonstratorsFrom(earlierSave, inPlace, asNewSlots))
+{
+    // Each slot now answers to its demonstrator's SaveID: put its cars back and hand it its LoadData.
+}
 ```
+
+Every other slot is left as it is, and so are the settings, so the save will read as out of sync with them
+until the player chooses to adopt it or respawn.
+
+`CargoIds` / `CargoValues` are reconciled rather than adopted, since the cargo types registered with the
+game this session are already holding the numbers it handed out. If the parts cargo numbers are to come
+along, write the table into the loaded save before calling `RestoreDemonstratorsFrom`. The one thing that
+cannot move is a number a car in the world is carrying, because a car records the number rather than the
+cargo, so the table is corrected to match.
 
 ### Doing it by reflection
 
@@ -104,26 +104,15 @@ To avoid a hard dependency on this mod:
 
 ```csharp
 var mod = UnityModManager.FindMod("CustomDemonstrators");
-var api = mod != null && mod.Active && mod.HasAssembly
-    ? mod.Assembly.GetType("CustomDemonstrators.Api.SaveRecord")
+var restore = mod != null && mod.Active && mod.HasAssembly
+    ? mod.Assembly.GetType("CustomDemonstrators.Api.SaveRecord")?.GetMethod("RestoreDemonstratorsFrom",
+        BindingFlags.Public | BindingFlags.Static, null,
+        [typeof(JObject), typeof(IEnumerable<string>), typeof(IEnumerable<string>)], null)
     : null;
-if (api != null)
-{
-    api.GetMethod("MergeDemonstratorsFrom", BindingFlags.Public | BindingFlags.Static)
-        ?.Invoke(null, [earlierSave, saveIds]);
-    api.GetMethod("Reload", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, null);
-}
+var restored = restore?.Invoke(null, [earlierSave, inPlace, asNewSlots]) is true;
 ```
 
-Bind the three-argument `MergeDemonstratorsFrom` by its signature, since it overloads the two-argument one:
-
-```csharp
-api.GetMethod("MergeDemonstratorsFrom", BindingFlags.Public | BindingFlags.Static, null,
-    [typeof(JObject), typeof(IEnumerable<string>), typeof(IEnumerable<string>)], null);
-```
-
-A build of this mod that predates any of these returns `null` from `GetMethod` rather than failing, so
-check for that and fall back to leaving the record for the next load.
+A build of this mod that predates it returns `null` from `GetMethod` rather than failing, so check for that.
 
 ## Building
 

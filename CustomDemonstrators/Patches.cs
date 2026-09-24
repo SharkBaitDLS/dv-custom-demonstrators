@@ -70,11 +70,22 @@ internal static class LocoRestorationController_Awake_Patch
 }
 
 // A slot is built before the save is replayed into it, so this is where the state it came back as lands.
+// Outside of a load, it's another mod manipulating the controllers.
 [HarmonyPatch(typeof(LocoRestorationController), nameof(LocoRestorationController.LoadData))]
 internal static class LocoRestorationController_LoadData_Patch
 {
-    private static void Postfix(LocoRestorationController __instance) =>
+    private static void Postfix(LocoRestorationController __instance)
+    {
+        ObservedRecord.OnLoadData(__instance);
         DemonstratorRespawner.SettleLoadedSlot(__instance);
+    }
+}
+
+// Any time the game writes demonstrator state, we should keep the record in sync
+[HarmonyPatch(typeof(SaveGameManager), "UpdateInternalData")]
+internal static class SaveGameManager_UpdateInternalData_Patch
+{
+    private static void Postfix() => ObservedRecord.OnSave();
 }
 
 // Build the demonstrator slots and garages this mod adds on top of the game's own. Both career entry points

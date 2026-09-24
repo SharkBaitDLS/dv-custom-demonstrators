@@ -19,18 +19,13 @@ internal static class VanillaGarages
 
     internal static bool IsDemonstrator(Garage garage) => DemonstratorGarages.Contains(garage);
 
+    // The game's own demonstrator slots, each with the loco it originally stood for, in garage order
+    internal static IEnumerable<(GarageType_v2 Garage, TrainCarLivery Primary)> Demonstrators =>
+        Groups.Where(g => g.isDemonstrator && g.liveries.Count > 0).Select(g => (g.garage, g.liveries[0]));
+
     // The liveries backing the game's own demonstrator slots, used to tell them apart from the slots this
     // mod adds when reading a save's baked configuration back.
-    internal static HashSet<string> VanillaDemonstratorIds()
-    {
-        var ids = new HashSet<string>();
-        foreach (var (_, isDemonstrator, liveries) in Groups)
-        {
-            if (!isDemonstrator) continue;
-            if (liveries.FirstOrDefault() is TrainCarLivery primary) ids.Add(primary.id);
-        }
-        return ids;
-    }
+    internal static HashSet<string> VanillaDemonstratorIds() => [.. Demonstrators.Select(d => d.Primary.id)];
 
     // Pristine copy of each garage's liveries, captured before GarageLiveries rewrites the
     // live game data.
