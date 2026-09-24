@@ -68,7 +68,7 @@ internal static class PartsWarehouse
     {
         if (SupportedText == null || machine.supportedCargoTypes == null) return;
 
-        var cargos = Globals.G?.Types?.cargos;
+        var cargos = GameTypes.Cargos;
         if (cargos == null) return;
 
         var text = new StringBuilder();

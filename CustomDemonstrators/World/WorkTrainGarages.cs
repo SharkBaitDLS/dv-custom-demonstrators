@@ -116,10 +116,11 @@ internal static class WorkTrainGarages
 
     internal static void AdoptStrayCars(GarageCarSpawner? spawner)
     {
-        var liveries = spawner?.GarageCarLiveries;
+        var liveries = spawner != null ? spawner.GarageCarLiveries : null;
         if (spawner == null || liveries == null) return;
 
-        var all = SingletonBehaviour<CarSpawner>.Instance?.AllCars;
+        var carSpawner = SingletonBehaviour<CarSpawner>.Instance;
+        var all = carSpawner != null ? carSpawner.AllCars : null;
         if (all == null) return;
 
         foreach (var car in all.ToList())
@@ -153,10 +154,9 @@ internal static class WorkTrainGarages
 
     private static void UnparentGarageCar(TrainCar car, GarageCarSpawner spawner)
     {
-        var home = car.GetComponent<HomeGarageReference>();
         // Immediately, because a garage taking this car on in the same frame would otherwise find the old
         // reference still standing, hang its own spawner off it, and have Unity destroy it a moment later.
-        if (home != null) UnityEngine.Object.DestroyImmediate(home);
+        if (car.TryGetComponent<HomeGarageReference>(out var home)) UnityEngine.Object.DestroyImmediate(home);
         car.OnDestroyCar -= CarLifecycle.DelegateFor<Action<TrainCar>>(spawner, "OnGarageCarDeleted");
     }
 
@@ -173,8 +173,7 @@ internal static class WorkTrainGarages
     {
         Main.Logger.Log($"Deleting garage car {car.name} [{car.ID}] that was blocking its replacement from spawning.");
         car.OnDestroyCar -= CarLifecycle.DelegateFor<Action<TrainCar>>(spawner, "OnGarageCarDeleted");
-        var home = car.GetComponent<HomeGarageReference>();
-        if (home != null) UnityEngine.Object.Destroy(home);
+        if (car.TryGetComponent<HomeGarageReference>(out var home)) UnityEngine.Object.Destroy(home);
         CarLifecycle.DestroyStaleBlockers(car);
         CarLifecycle.Delete(car);
     }

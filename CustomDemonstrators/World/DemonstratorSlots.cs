@@ -39,7 +39,7 @@ internal static class DemonstratorSlots
         _built = false;
         SlotTypes.Reset();
 
-        var types = Globals.G?.Types;
+        var types = GameTypes.Current;
         if (types != null && _slots.Count > 0)
         {
             foreach (var slot in _slots.Values)
@@ -64,7 +64,7 @@ internal static class DemonstratorSlots
         if (_built) return;
         _built = true;
 
-        var types = Globals.G?.Types;
+        var types = GameTypes.Current;
         if (types == null) return;
 
         var template = Template();
@@ -95,7 +95,7 @@ internal static class DemonstratorSlots
     // Brings the live world in line with the current settings for the force-respawn button
     internal static void Reconcile()
     {
-        var types = Globals.G?.Types;
+        var types = GameTypes.Current;
         if (types == null) return;
 
         var wanted = new HashSet<string>(DesiredLocoIds());
@@ -140,7 +140,7 @@ internal static class DemonstratorSlots
     // Why a livery can't be given a demonstrator slot of its own, or null if it can
     internal static string? SlotUnavailableReason(string locoId, TrainCarLivery? tender)
     {
-        var types = Globals.G?.Types;
+        var types = GameTypes.Current;
         if (types == null) return "the game's types aren't loaded yet";
 
         var loco = Livery(locoId);
@@ -150,11 +150,13 @@ internal static class DemonstratorSlots
         {
             if (claimed == null) continue;
 
-            var owner = types.garages.FirstOrDefault(g => g?.garageCarLiveries?.Contains(claimed) == true);
+            var owner = types.garages.FirstOrDefault(g => g != null && g.garageCarLiveries?.Contains(claimed) == true);
             GarageCarSpawner.Spawners.TryGetValue(claimed, out var spawner);
             if (owner == null && spawner == null) continue;
 
-            var by = owner?.id ?? spawner.garageType?.id ?? "another garage";
+            var by = owner != null ? owner.id
+                : spawner != null && spawner.garageType != null ? spawner.garageType.id
+                : "another garage";
             return $"{claimed.id} is already spawned by garage {by}";
         }
 
@@ -163,7 +165,7 @@ internal static class DemonstratorSlots
 
     private static bool Build(string locoId, LocoRestorationController template, LocoRestorationSpawnPoint[] spawnPoints)
     {
-        var types = Globals.G?.Types;
+        var types = GameTypes.Current;
         if (types == null) return false;
 
         var tender = TenderFor(locoId);
@@ -196,7 +198,8 @@ internal static class DemonstratorSlots
         // if for some reason a poster couldn't be built. Either way it's held inactive until the slot is whole,
         // so nothing Awakes onto a half-built one.
         var pending = SlotBoard.Prepare(locoId, template, home);
-        var host = pending?.Board ?? SlotScene.CreateContainer(locoId, template.transform.parent);
+        var board = pending?.Board;
+        var host = board != null ? board : SlotScene.CreateContainer(locoId, template.transform.parent);
 
         built.Spawner = SlotScene.CreateSpawner(host, garage, built.Home, template.garageSpawner);
         built.Controller = SlotScene.CreateController(
@@ -233,7 +236,9 @@ internal static class DemonstratorSlots
         // SlotBoard.Destroy and has to run first because it is what hands the museum's
         // culling list and our poster textures back before the object dies. Only a slot that never got a
         // board has further cleanup.
-        var host = slot.Controller?.gameObject ?? slot.Spawner?.gameObject;
+        var host = slot.Controller != null ? slot.Controller.gameObject
+            : slot.Spawner != null ? slot.Spawner.gameObject
+            : null;
         var isSeparate = host != null && host != slot.Board;
 
         if (slot.Controller != null)
@@ -249,12 +254,12 @@ internal static class DemonstratorSlots
 
         if (slot.Home != null) UnityEngine.Object.Destroy(slot.Home);
 
-        var types = Globals.G?.Types;
-        types?.garages.Remove(slot.Garage);
+        var types = GameTypes.Current;
+        if (types != null) types.garages.Remove(slot.Garage);
         SlotTypes.RevokeSummoning(slot.Garage);
         if (slot.Cargo != null)
         {
-            types?.cargos.Remove(slot.Cargo);
+            if (types != null) types.cargos.Remove(slot.Cargo);
             SlotTypes.ForgetCargo(slot.Cargo);
             UnityEngine.Object.Destroy(slot.Cargo);
         }
@@ -281,27 +286,28 @@ internal static class DemonstratorSlots
         foreach (var locoId in DesiredLocoIds())
         {
             ids.Add(locoId);
-            if (TenderFor(locoId)?.id is string tenderId) ids.Add(tenderId);
+            if (GameTypes.Id(TenderFor(locoId)) is string tenderId) ids.Add(tenderId);
         }
         return ids;
     }
 
     internal static CargoType_v2? OwnCargoFor(LocoRestorationController controller)
     {
-        if (!SlotTypes.IsSlotGarage(controller.garageSpawner?.garageType)) return null;
+        if (!SlotTypes.IsSlotGarage(GameTypes.GarageOf(controller))) return null;
 
-        var locoId = controller.locoLivery?.id;
+        var locoId = GameTypes.Id(controller.locoLivery);
         if (locoId == null || !_slots.TryGetValue(locoId, out var slot)) return null;
         if (slot.Cargo != null) return slot.Cargo;
 
         slot.Cargo = SlotTypes.CloneCargo(slot.CargoTemplate, locoId);
-        if (slot.Cargo != null) Globals.G?.Types?.RecalculateCaches();
+        var model = GameTypes.Current;
+        if (slot.Cargo != null && model != null) model.RecalculateCaches();
         return slot.Cargo;
     }
 
     internal static LocoRestorationController? Template() =>
         LocoRestorationController.allLocoRestorationControllers
-            .Where(c => c != null && c.locoLivery != null && c.garageSpawner?.garageType != null
+            .Where(c => c != null && c.locoLivery != null && c.garageSpawner != null && c.garageSpawner.garageType != null
                 && c.garageSpawner.locoSpawnPoint != null && c.orderPartsModule != null
                 && c.installPartsModule != null && !SlotTypes.IsSlotGarage(c.garageSpawner.garageType))
             .OrderBy(c => c.locoLivery.id, StringComparer.Ordinal)
@@ -320,7 +326,7 @@ internal static class DemonstratorSlots
             (kv.Key, kv.Value.Garage, kv.Value.Controller, kv.Value.Cargo, kv.Value.Home, kv.Value.Board));
 
     private static TrainCarLivery? Livery(string id) =>
-        Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == id);
+        GameTypes.Livery(id);
 
     private static TrainCarLivery? TenderFor(string locoId)
     {

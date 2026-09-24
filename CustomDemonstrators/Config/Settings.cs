@@ -150,7 +150,7 @@ public class Settings : UnityModManager.ModSettings
     internal TrainCarLivery? GetReplacement(TrainCarLivery original)
     {
         if (!LiveryReplacements.TryGetValue(original.id, out var replacementId)) return null;
-        return Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == replacementId);
+        return GameTypes.Livery(replacementId);
     }
 
     // The extra consist liveries configured for a garage (beyond its replaced default car).

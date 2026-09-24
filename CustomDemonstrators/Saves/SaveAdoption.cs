@@ -85,7 +85,7 @@ internal static class SaveAdoption
     private static void AdoptTender(string slotId, TrainCarLivery? originalTender, string? tenderId)
     {
         Main.Settings.SetTenderId(slotId, null);
-        if (SlotChoices.ResolveTender(slotId, originalTender)?.id != tenderId)
+        if (GameTypes.Id(SlotChoices.ResolveTender(slotId, originalTender)) != tenderId)
             Main.Settings.SetTenderId(slotId, tenderId);
     }
 

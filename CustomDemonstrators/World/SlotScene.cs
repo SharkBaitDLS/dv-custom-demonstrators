@@ -167,7 +167,8 @@ internal static class SlotScene
         }
     }
 
-    internal static string? TrackNameAt(Vector3 position) => RailTrack.GetClosest(position).track?.name;
+    internal static string? TrackNameAt(Vector3 position) =>
+        RailTrack.GetClosest(position).track is var track && track != null ? track.name : null;
 
     // Puts a hand-placed slot on its new spot. Returns whether anything moved.
     internal static bool MoveHome(string locoId, GameObject? marker, LocoRestorationController? controller)
@@ -190,7 +191,7 @@ internal static class SlotScene
 
         controller.destinationTrackId = track;
         DestinationRailTrack?.SetValue(controller,
-            SingletonBehaviour<RailTrackRegistryBase>.Instance?.GetTrackWithName(track));
+            SingletonBehaviour<RailTrackRegistryBase>.Instance is var registry && registry != null ? registry.GetTrackWithName(track) : null);
 
         Main.Logger.Log($"Moved the demonstrator slot for {locoId} to track {track}"
             + (controller.State is > LocoRestorationController.RestorationState.S0_Initialized

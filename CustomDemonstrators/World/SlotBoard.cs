@@ -131,7 +131,7 @@ internal static class SlotBoard
     // The fixed font size for vanilla demonstrators is too large for many modded locos' names
     private static void FitName(LocoRestorationView? view)
     {
-        var plate = view?.locoNameLabel;
+        var plate = view != null ? view.locoNameLabel : null;
         if (plate == null || plate.enableAutoSizing) return;
 
         plate.fontSizeMax = plate.fontSize;
@@ -145,8 +145,7 @@ internal static class SlotBoard
     {
         if (board == null) return "none";
 
-        var optimizer = board.GetComponent<PlayerDistanceMultipleGameObjectsOptimizer>()
-            ?? board.transform.parent?.GetComponent<PlayerDistanceMultipleGameObjectsOptimizer>();
+        var optimizer = OptimizerFor(board);
         if (optimizer == null) return "lit always, no optimizer";
 
         var panels = optimizer.gameObjectsToDisable
@@ -163,18 +162,27 @@ internal static class SlotBoard
             + $"{(optimizer.transform.IsChildOf(board.transform) ? "own" : "museum")} optimizer, "
             + $"{away:N0} m out of {Mathf.Sqrt(optimizer.disableSqrDistance):N0} m";
     }
+
+    // The board's own optimizer, or the museum's one it sits under.
+    private static PlayerDistanceMultipleGameObjectsOptimizer? OptimizerFor(GameObject board)
+    {
+        if (board.TryGetComponent<PlayerDistanceMultipleGameObjectsOptimizer>(out var own)) return own;
+        var parent = board.transform.parent;
+        return parent != null && parent.TryGetComponent<PlayerDistanceMultipleGameObjectsOptimizer>(out var museum)
+            ? museum
+            : null;
+    }
 #endif
 
     private static void Rename(LocoRestorationView? view, TrainCarLivery? livery)
     {
-        var plate = view?.locoNameLabel;
+        var plate = view != null ? view.locoNameLabel : null;
         if (plate == null || livery == null) return;
 
         var key = string.IsNullOrEmpty(livery.localizationKey) ? livery.id : livery.localizationKey;
         if (string.IsNullOrEmpty(key)) return;
 
-        var localize = plate.GetComponent<Localize>();
-        if (localize != null)
+        if (plate.TryGetComponent<Localize>(out var localize))
         {
             localize.key = key;
             localize.UpdateLocalization();

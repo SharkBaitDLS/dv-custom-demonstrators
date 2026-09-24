@@ -36,7 +36,7 @@ internal static class AddedGarages
     {
         _built = false;
 
-        var types = Globals.G?.Types;
+        var types = GameTypes.Current;
         if (types != null && _garages.Count > 0)
         {
             foreach (var garage in _garages.Values) types.garages.Remove(garage.Garage);
@@ -51,7 +51,7 @@ internal static class AddedGarages
         if (_built) return;
         _built = true;
 
-        var types = Globals.G?.Types;
+        var types = GameTypes.Current;
         if (types == null) return;
 
         var wanted = Desired().ToList();
@@ -78,7 +78,7 @@ internal static class AddedGarages
     // Brings the live world in line with the current settings for the force respawn button
     internal static void Reconcile()
     {
-        var types = Globals.G?.Types;
+        var types = GameTypes.Current;
         if (types == null) return;
 
         var wanted = Desired().ToDictionary(w => w.PrimaryId, w => w.Extras);
@@ -117,7 +117,7 @@ internal static class AddedGarages
 
     private static bool Build(string primaryId, IReadOnlyList<string> extraIds, GarageCarSpawner template)
     {
-        var types = Globals.G?.Types;
+        var types = GameTypes.Current;
         if (types == null) return false;
 
         var garageId = SlotTypes.WorkGarageId(primaryId);
@@ -299,7 +299,7 @@ internal static class AddedGarages
 
         if (built.Host != null) Object.Destroy(built.Host); // takes the spawner and home with it
 
-        Globals.G?.Types?.garages.Remove(built.Garage);
+        GameTypes.Garages?.Remove(built.Garage);
         SlotTypes.RevokeSummoning(built.Garage);
     }
 
@@ -310,7 +310,7 @@ internal static class AddedGarages
         foreach (var livery in liveries)
         {
             if (!GarageCarSpawner.Spawners.TryGetValue(livery, out var owner)) continue;
-            if (owner != null && owner.garageType?.garageCarLiveries?.Contains(livery) == true) continue;
+            if (owner != null && owner.garageType != null && owner.garageType.garageCarLiveries?.Contains(livery) == true) continue;
 
             GarageCarSpawner.Spawners.Remove(livery);
         }
@@ -340,7 +340,7 @@ internal static class AddedGarages
             if (!liveries.Contains(extra)) liveries.Add(extra);
         }
 
-        var garages = Globals.G?.Types?.garages;
+        var garages = GameTypes.Garages;
         if (garages == null) return null;
 
         foreach (var claimed in liveries)
@@ -390,5 +390,5 @@ internal static class AddedGarages
             .FirstOrDefault();
 
     private static TrainCarLivery? Livery(string id) =>
-        Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == id);
+        GameTypes.Livery(id);
 }

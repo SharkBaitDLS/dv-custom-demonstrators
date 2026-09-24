@@ -61,7 +61,7 @@ internal static class SettingsGUI
 
     internal static void OnGUI(UnityModManager.ModEntry entry)
     {
-        if (Globals.G?.Types == null)
+        if (GameTypes.Current == null)
         {
             GUILayout.Label("Waiting for game data to load…");
             return;
@@ -169,7 +169,7 @@ internal static class SettingsGUI
         string.IsNullOrEmpty(key) ? fallback : LocalizationAPI.L(key);
 
     private static TrainCarLivery? GetLiveryById(string id) =>
-        Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == id);
+        GameTypes.Livery(id);
 
     private static void DrawSection(
         string heading,
@@ -187,7 +187,8 @@ internal static class SettingsGUI
                 DrawReplacementRow(livery, kind);
                 if (kind == SlotKind.Demonstrator)
                 {
-                    DrawDemonstratorRows(livery.id, Main.Settings.GetReplacement(livery) ?? livery,
+                    var replacement = Main.Settings.GetReplacement(livery);
+                    DrawDemonstratorRows(livery.id, replacement != null ? replacement : livery,
                         VanillaGarages.OriginalTender(garage),
                         garage.id, VanillaGarages.OriginalSummonPrice(garage));
                 }
@@ -430,10 +431,17 @@ internal static class SettingsGUI
     }
 
     private static void DrawHomeRow(Settings.AdditionalSlot slot) =>
-        DrawPlacementRow($"slot:{slot.LocoId}",
-            DemonstratorSlots.Template()?.garageSpawner?.locoSpawnPoint?.transform,
+        DrawPlacementRow($"slot:{slot.LocoId}", TemplateSpawnPoint(),
             slot.Home, "No stall left in the musuem, place the home by hand to progress the restoration",
             home => Main.Settings.SetAdditionalSlotHome(slot.LocoId, home));
+
+    private static Transform? TemplateSpawnPoint()
+    {
+        var template = DemonstratorSlots.Template();
+        var spawner = template != null ? template.garageSpawner : null;
+        var point = spawner != null ? spawner.locoSpawnPoint : null;
+        return point != null ? point.transform : null;
+    }
 
     private static void DrawPlacementRow(
         string key, Transform? anchor, Placement? home, string unplacedLabel, System.Action<Placement?> set)
@@ -711,7 +719,9 @@ internal static class SettingsGUI
 
     private static string SummonCapNote()
     {
-        var cap = Globals.G?.GameParams?.WorkTrainSummonMaxPrice;
+        var globals = Globals.G;
+        var gameParams = globals != null ? globals.GameParams : null;
+        var cap = gameParams != null ? gameParams.WorkTrainSummonMaxPrice : (float?)null;
         return cap is float max ? $", capped at ${max:0} by your difficulty" : "";
     }
 

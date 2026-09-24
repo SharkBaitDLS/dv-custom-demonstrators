@@ -204,7 +204,7 @@ internal static class SaveGuard
             var primary = liveries.FirstOrDefault();
             if (primary == null) continue;
             var tender = SlotChoices.ResolveTender(primary.id, VanillaGarages.OriginalTender(garage));
-            entries.Add((primary.id, SlotChoices.CurrentSpawnId(primary), tender?.id));
+            entries.Add((primary.id, SlotChoices.CurrentSpawnId(primary), GameTypes.Id(tender)));
         }
 
         // Slots this mod adds are part of what a save was baked with, so adding or removing one has to

@@ -46,7 +46,7 @@ internal static class SlotChoices
         VanillaGarages.Groups.SelectMany(g => g.liveries.Select(l => (l, KindFor(g.garage, g.isDemonstrator))));
 
     private static TrainCarLivery? GetLivery(string id) =>
-        Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == id);
+        GameTypes.Livery(id);
 
     private static (TrainCarLivery livery, SlotKind kind) ColliderFor(TrainCarLivery slot, string targetId) =>
         AllSlots().FirstOrDefault(s => s.livery.id != slot.id && CurrentSpawnId(s.livery) == targetId);
@@ -349,14 +349,17 @@ internal static class SlotChoices
         {
             if (isDemonstrator || garage.v1 != Garage.Museum_FlatbedShort) continue;
             var slot = liveries.FirstOrDefault();
-            return slot == null ? null : GetLivery(CurrentSpawnId(slot)) ?? slot;
+            if (slot == null) return null;
+            var spawned = GetLivery(CurrentSpawnId(slot));
+            return spawned != null ? spawned : slot;
         }
         return null;
     }
 
     internal static bool CanBeRestorationParts(CargoType_v2 cargo)
     {
-        var carType = RestorationFlatcar()?.parentType;
+        var flatcar = RestorationFlatcar();
+        var carType = flatcar != null ? flatcar.parentType : null;
         return carType == null || cargo.IsLoadableOnCarType(carType);
     }
 

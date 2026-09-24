@@ -106,6 +106,11 @@
 		<PackageReference Include="UnityModManager" Version="0.27.2"/>
 	</ItemGroup>
 
+	<!-- Unity Analyzers: Unity-aware null checks and other Unity-specific diagnostics -->
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Unity.Analyzers" Version="1.27.0" PrivateAssets="all"/>
+	</ItemGroup>
+
 	<!-- Null Checking -->
 	<ItemGroup>
 		<PackageReference Include="Microsoft.CSharp" Version="4.7.0"/>

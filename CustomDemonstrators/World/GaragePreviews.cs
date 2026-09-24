@@ -30,10 +30,10 @@ internal static class GaragePreviews
         {
             var cover = unlocker.lootCover;
             var spawner = unlocker.GetComponent<GarageCarSpawner>();
-            var garage = spawner?.garageType;
+            var garage = spawner != null ? spawner.garageType : null;
             if (cover == null || spawner == null || garage == null) return;
 
-            if (GarageUnlocks.Manager()?.IsGarageUnlocked(garage) == true) return;
+            if (GarageUnlocks.Manager() is var manager && manager != null && manager.IsGarageUnlocked(garage)) return;
 
             var newCover = new GameObject($"CustomDemonstrators_{garage.id}_Preview");
             newCover.transform.SetParent(cover.transform.parent, worldPositionStays: false);
@@ -74,7 +74,7 @@ internal static class GaragePreviews
     {
         try
         {
-            var garage = spawner?.garageType;
+            var garage = spawner != null ? spawner.garageType : null;
             if (garage == null || !_previews.TryGetValue(garage, out var preview)) return;
 
             if (preview.Cover == null)
@@ -83,8 +83,7 @@ internal static class GaragePreviews
                 return;
             }
 
-            var unlocker = spawner!.GetComponent<GaragePadlockUnlocker>();
-            if (unlocker == null) return;
+            if (!spawner!.TryGetComponent<GaragePadlockUnlocker>(out var unlocker)) return;
 
             Apply(preview, spawner, unlocker);
         }
@@ -108,7 +107,7 @@ internal static class GaragePreviews
         // here we can fix that and build a BE2 prefab instead.
         if (stock && garage.v1 != Garage.Bob)
         {
-            preview.Original?.SetActive(true);
+            if (preview.Original != null) preview.Original.SetActive(true);
             return;
         }
 
@@ -116,13 +115,13 @@ internal static class GaragePreviews
 
         if (standin == null)
         {
-            preview.Original?.SetActive(stock);
+            if (preview.Original != null) preview.Original.SetActive(stock);
             Main.Logger.Warning($"Couldn't build a preview model for {garage.id}; "
                 + (stock ? "leaving the game's own in place." : "leaving the garage empty instead."));
             return;
         }
 
-        preview.Original?.SetActive(false);
+        if (preview.Original != null) preview.Original.SetActive(false);
 
         standin.transform.SetParent(preview.Cover.transform, worldPositionStays: true);
         preview.Standin = standin;

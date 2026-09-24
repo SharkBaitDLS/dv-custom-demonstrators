@@ -100,7 +100,7 @@ internal static class SlotTypes
     internal static void AllowSummoning(GarageType_v2 garage)
     {
         var spawner = CarSpawner.Instance;
-        if (spawner?.crewVehicleGarages == null) return;
+        if (spawner == null || spawner.crewVehicleGarages == null) return;
         if (spawner.crewVehicleGarages.Contains(garage)) return;
         spawner.crewVehicleGarages = [.. spawner.crewVehicleGarages, garage];
     }
@@ -108,7 +108,7 @@ internal static class SlotTypes
     internal static void RevokeSummoning(GarageType_v2 garage)
     {
         var spawner = CarSpawner.Instance;
-        if (spawner?.crewVehicleGarages == null) return;
+        if (spawner == null || spawner.crewVehicleGarages == null) return;
         spawner.crewVehicleGarages = [.. spawner.crewVehicleGarages.Where(g => g != garage)];
     }
 
@@ -183,8 +183,8 @@ internal static class SlotTypes
     // line with it, for when something outside this mod has rewritten that table in the loaded save.
     internal static void ReconcileCargoNumbers()
     {
-        var types = Globals.G?.Types;
-        if (types?.cargos == null || SaveState.Data() == null) return;
+        var types = GameTypes.Current;
+        if (types == null || types.cargos == null || SaveState.Data() == null) return;
 
         var registered = types.cargos.Where(IsSlotCargo).ToList();
         var wanted = LoadCargoMapping();
@@ -273,7 +273,8 @@ internal static class SlotTypes
     private static HashSet<int> CarriedNumbers()
     {
         var carried = new HashSet<int>();
-        foreach (var car in CarSpawner.Instance?.AllCars ?? [])
+        var spawner = CarSpawner.Instance;
+        foreach (var car in spawner != null ? spawner.AllCars : [])
         {
             if (car != null && car.LoadedCargo != CargoType.None) carried.Add((int)car.LoadedCargo);
         }

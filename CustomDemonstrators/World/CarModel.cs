@@ -9,10 +9,10 @@ internal static class CarModel
 {
     internal static GameObject? Build(TrainCarLivery? livery, Transform parent)
     {
-        var prefab = livery?.prefab;
+        var prefab = livery != null ? livery.prefab : null;
         if (prefab == null)
         {
-            Main.Logger.Warning($"Car model: '{livery?.id}' has no prefab to copy from.");
+            Main.Logger.Warning($"Car model: '{GameTypes.Id(livery)}' has no prefab to copy from.");
             return null;
         }
 

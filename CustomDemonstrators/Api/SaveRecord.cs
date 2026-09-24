@@ -140,7 +140,7 @@ public static class SaveRecord
         {
             if (controller == null) continue;
 
-            if (pending.Contains(DemonstratorSetup.OriginalLoco(controller)?.id ?? ""))
+            if (pending.Contains(GameTypes.Id(DemonstratorSetup.OriginalLoco(controller)) ?? ""))
                 DemonstratorSetup.ApplyTo(controller);
             else
                 DemonstratorRespawner.ReinitializeDemonstrator(controller);

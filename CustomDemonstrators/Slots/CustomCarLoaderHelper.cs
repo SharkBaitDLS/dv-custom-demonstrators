@@ -24,17 +24,20 @@ internal static class CustomCarLoaderHelper
 
     private static CCL_CarVariant? Variant(TrainCarLivery? livery) => livery as CCL_CarVariant;
 
-    internal static float? SummonPriceFor(TrainCarLivery? livery) => Variant(livery)?.SummonPrice;
+    internal static float? SummonPriceFor(TrainCarLivery? livery) =>
+        Variant(livery) is var v && v != null ? v.SummonPrice : null;
 
     internal static float? PartsOrderPriceFor(TrainCarLivery? livery) =>
-        Variant(livery)?.DemonstratorPartsOrderCost;
+        Variant(livery) is var v && v != null ? v.DemonstratorPartsOrderCost : null;
 
     internal static float? PartsInstallPriceFor(TrainCarLivery? livery) =>
-        Variant(livery)?.DemonstratorPartsInstallationCost;
+        Variant(livery) is var v && v != null ? v.DemonstratorPartsInstallationCost : null;
 
-    internal static float? PartsMassFor(TrainCarLivery? livery) => Variant(livery)?.PartsCargoMass;
+    internal static float? PartsMassFor(TrainCarLivery? livery) =>
+        Variant(livery) is var v && v != null ? v.PartsCargoMass : null;
 
-    internal static PartsCargoModel? PartsModelFor(TrainCarLivery? livery) => Variant(livery)?.PartsModel;
+    internal static PartsCargoModel? PartsModelFor(TrainCarLivery? livery) =>
+        Variant(livery) is var v && v != null ? v.PartsModel : null;
 
     // The author's own crate models, only meaningful when PartsModelFor said Custom.
     internal static (GameObject? Dm1u, GameObject? Flatbed) PartsPrefabsFor(TrainCarLivery? livery) =>
@@ -46,7 +49,8 @@ internal static class CustomCarLoaderHelper
         return dm1u != null || flatbed != null;
     }
 
-    internal static Texture2D? PosterFor(TrainCarLivery? livery) => Variant(livery)?.DemonstratorPoster;
+    internal static Texture2D? PosterFor(TrainCarLivery? livery) =>
+        Variant(livery) is var v && v != null ? v.DemonstratorPoster : null;
 
     // The localization keys CCL registers the parts name under, or null when not set by the mod author
     internal static string? PartsNameKeyFor(TrainCarLivery? livery) =>

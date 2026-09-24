@@ -70,7 +70,7 @@ internal static class RestorationPartsCustomizer
     // Repair any cargoes that duplicate their loadable car types
     private static void Sanitize(CargoType_v2? cargo)
     {
-        var loadables = cargo?.loadableCarTypes;
+        var loadables = cargo != null ? cargo.loadableCarTypes : null;
         if (cargo == null || loadables == null || loadables.Length == 0) return;
 
         var seen = new HashSet<TrainCarType_v2>();
@@ -113,7 +113,7 @@ internal static class RestorationPartsCustomizer
         Sanitize(controller.locoPartCargo);
 
         Main.Logger.Log($"Restoration '{slotId}' is using parts cargo "
-            + $"'{controller.locoPartCargo?.id ?? "<none>"}' ({source}).");
+            + $"'{(controller.locoPartCargo != null ? controller.locoPartCargo.id : "<none>")}' ({source}).");
 
         // Whatever the choice turned out to be, the warehouse has to be willing to load it.
         PartsWarehouse.EnsureSupported(controller);
@@ -124,7 +124,7 @@ internal static class RestorationPartsCustomizer
     {
         // Snapshots exist to put a shared game cargo back the way we found it. A slot added by this mod
         // only ever rewrites a copy it owns, and gets a fresh one each load, so it has nothing to restore.
-        if (!SlotTypes.IsSlotGarage(controller.garageSpawner?.garageType))
+        if (!SlotTypes.IsSlotGarage(GameTypes.GarageOf(controller)))
             EnsureSnapshot(slotId, controller.locoPartCargo);
 
         var choice = CargoChoice(slotId);
@@ -202,10 +202,10 @@ internal static class RestorationPartsCustomizer
     // controller starts, which is after we run here, so overwriting the field is enough.
     private static void SyncRegisterNames(LocoRestorationController controller)
     {
-        var key = controller.locoPartCargo?.localizationKeyFull;
+        var key = controller.locoPartCargo != null ? controller.locoPartCargo.localizationKeyFull : null;
         if (string.IsNullOrEmpty(key)) return;
-        controller.orderPartsModule?.localizationKey = key!;
-        controller.installPartsModule?.localizationKey = key!;
+        if (controller.orderPartsModule != null) controller.orderPartsModule.localizationKey = key!;
+        if (controller.installPartsModule != null) controller.installPartsModule.localizationKey = key!;
     }
 
     private static void EnsureSnapshot(string slotId, CargoType_v2? cargo)
@@ -253,7 +253,7 @@ internal static class RestorationPartsCustomizer
     }
 
     internal static CargoType_v2? FindCargo(string id) =>
-        Globals.G?.Types?.cargos?.FirstOrDefault(c => c != null && c.id == id);
+        GameTypes.Cargos?.FirstOrDefault(c => c != null && c.id == id);
 
     // Whether the CCL author configured anything about this loco's replacement parts,
     // used purely in the GUI to indicate to the users whether the default setting

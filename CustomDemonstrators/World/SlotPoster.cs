@@ -67,7 +67,7 @@ internal static class SlotPoster
 
     private static bool Reskin(MeshRenderer poster, Texture2D picture)
     {
-        var mesh = poster.GetComponent<MeshFilter>()?.sharedMesh;
+        var mesh = poster.TryGetComponent<MeshFilter>(out var filter) ? filter.sharedMesh : null;
         if (mesh == null) return false;
 
         if (Tile(mesh.name) is not Rect window)

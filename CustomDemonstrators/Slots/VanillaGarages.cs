@@ -43,11 +43,11 @@ internal static class VanillaGarages
 
     internal static void EnsureSnapshot()
     {
-        var garages = Globals.G?.Types?.garages;
+        var garages = GameTypes.Garages;
         if (garages == null) return;
         foreach (var garage in garages)
         {
-            if (garage?.garageCarLiveries == null || _originals.ContainsKey(garage)) continue;
+            if (garage == null || garage.garageCarLiveries == null || _originals.ContainsKey(garage)) continue;
             _originals[garage] = (TrainCarLivery[])garage.garageCarLiveries.Clone();
             _originalPrices[garage] = garage.summonPrice;
         }
@@ -84,8 +84,8 @@ internal static class VanillaGarages
     internal static TrainCarLivery? PrimaryLoco(GarageType_v2 garage)
     {
         var liveries = OriginalLiveries(garage);
-        return liveries.FirstOrDefault(l => l != null && CarTypes.IsLocomotive(l))
-            ?? liveries.FirstOrDefault(l => l != null);
+        var loco = liveries.FirstOrDefault(l => l != null && CarTypes.IsLocomotive(l));
+        return loco != null ? loco : liveries.FirstOrDefault(l => l != null);
     }
 
     internal static TrainCarLivery? OriginalTender(GarageType_v2 garage) =>
@@ -103,7 +103,7 @@ internal static class VanillaGarages
     private static List<(GarageType_v2, bool, List<TrainCarLivery>)> Build()
     {
         var result = new List<(GarageType_v2, bool, List<TrainCarLivery>)>();
-        var garages = Globals.G?.Types?.garages;
+        var garages = GameTypes.Garages;
         if (garages == null) return result;
         EnsureSnapshot();
 

@@ -73,11 +73,11 @@ internal static class CarLifecycle
     internal static int SweepGadgetsToLostAndFound(TrainCar? car)
     {
         var storage = SingletonBehaviour<StorageController>.Instance;
-        var custom = car?.Customization;
+        var custom = car != null ? car.Customization : null;
         if (storage == null || custom == null) return 0;
 
         var gadgets = custom.Customizers.OfType<GadgetBase>().Where(g => g != null).ToList();
-        var items = gadgets.Select(g => g.GadgetItem?.Item).Where(i => i != null).ToList();
+        var items = gadgets.Select(g => g.GadgetItem != null ? g.GadgetItem.Item : null).Where(i => i != null).ToList();
         if (items.Count == 0) return 0;
 
         foreach (var gadget in gadgets)
@@ -121,7 +121,7 @@ internal static class CarLifecycle
         var spawner = SingletonBehaviour<CarSpawner>.Instance;
         if (_forgetting.Count == 0 || spawner == null || spawner == _watching) return;
 
-        _watching?.CarAboutToBeDeleted -= OnCarAboutToBeDeleted;
+        if (_watching != null) _watching.CarAboutToBeDeleted -= OnCarAboutToBeDeleted;
         spawner.CarAboutToBeDeleted += OnCarAboutToBeDeleted;
         _watching = spawner;
     }

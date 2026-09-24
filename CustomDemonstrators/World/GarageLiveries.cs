@@ -14,8 +14,8 @@ internal static class GarageLiveries
     {
         var changed = new List<GarageType_v2>();
 
-        var types = Globals.G?.Types;
-        if (types?.garages == null) return changed;
+        var types = GameTypes.Current;
+        if (types == null || types.garages == null) return changed;
 
         // Nothing may reach the world until the save guard can actually answer
         if (SaveState.Data() == null) return changed;
@@ -86,7 +86,7 @@ internal static class GarageLiveries
     // This is the only setting we live apply and keep out of the fingerprint
     internal static void ApplySummonPrice(string garageId, TrainCarLivery? primary, float fallback)
     {
-        var garage = Globals.G?.Types?.garages?.FirstOrDefault(g => g != null && g.id == garageId);
+        var garage = GameTypes.Garages?.FirstOrDefault(g => g != null && g.id == garageId);
         if (garage != null) ApplySummonPrice(garage, primary, fallback);
     }
 
@@ -117,7 +117,7 @@ internal static class GarageLiveries
             }
 
             var replaced = VanillaGarages.OriginalLiveries(garage)
-                .Select(l => Unclaimed(Main.Settings.GetReplacement(l), spokenFor) ?? l);
+                .Select(l => Unclaimed(Main.Settings.GetReplacement(l), spokenFor) is var r && r != null ? r : l);
             var extras = Main.Settings.GetExtraCars(garage.id)
                 .Select(id => Unclaimed(DemonstratorSetup.GetLivery(id), spokenFor));
             return [.. replaced.Concat(extras).Where(l => l != null)!];
@@ -132,7 +132,7 @@ internal static class GarageLiveries
             return VanillaGarages.OriginalLiveries(garage);
         }
 
-        var desired = new List<TrainCarLivery> { replacementLoco ?? primary };
+        var desired = new List<TrainCarLivery> { replacementLoco != null ? replacementLoco : primary };
         if (tenderLivery != null) desired.Add(tenderLivery);
         return [.. desired];
     }

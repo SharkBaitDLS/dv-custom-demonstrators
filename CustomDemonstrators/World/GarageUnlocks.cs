@@ -18,7 +18,8 @@ internal static class GarageUnlocks
     internal static void Unlock(GarageType_v2? garage)
     {
         if (garage == null) return;
-        Manager()?.UnlockGarage(garage);
+        var manager = Manager();
+        if (manager != null) manager.UnlockGarage(garage);
     }
 
     internal static void Revoke(GarageType_v2? garage, string? reason = null)

@@ -46,7 +46,7 @@ internal static class DemonstratorCars
 
         if (keep)
         {
-            Main.Logger.Log($"Kept restored {loco?.name} as a player-owned car while removing its demonstrator slot.");
+            Main.Logger.Log($"Kept restored {(loco != null ? loco.name : null)} as a player-owned car while removing its demonstrator slot.");
         }
 
         t.Field("loco").SetValue(null);
@@ -76,7 +76,7 @@ internal static class DemonstratorCars
         if (loco != null) UnparentCar(loco, controller, garage);
         if (secondCar != null) UnparentCar(secondCar, controller, garage);
 
-        if (garage?.garageCars != null)
+        if (garage != null && garage.garageCars != null)
         {
             for (int i = 0; i < garage.garageCars.Length; i++)
             {
@@ -96,8 +96,7 @@ internal static class DemonstratorCars
 
     private static void UnparentCar(TrainCar car, LocoRestorationController controller, GarageCarSpawner? garage)
     {
-        var home = car.GetComponent<HomeGarageReference>();
-        if (home != null) UnityEngine.Object.Destroy(home);
+        if (car.TryGetComponent<HomeGarageReference>(out var home)) UnityEngine.Object.Destroy(home);
 
         car.OnDestroyCar -= CarLifecycle.DelegateFor<Action<TrainCar>>(controller, "OnUnexpectedDestroy");
         if (garage != null)

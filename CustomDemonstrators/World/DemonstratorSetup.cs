@@ -11,7 +11,7 @@ namespace CustomDemonstrators.World;
 internal static class DemonstratorSetup
 {
     internal static TrainCarLivery? GetLivery(string id) =>
-        Globals.G?.Types?.Liveries.FirstOrDefault(l => l.id == id);
+        GameTypes.Livery(id);
 
     // A license lent to a tender outlives the world it was lent in, noted here so it can be removed when
     // reloading a save/switching sessions
@@ -28,7 +28,7 @@ internal static class DemonstratorSetup
     {
         foreach (var tender in _lentLicenses)
         {
-            tender?.requiredLicense = null;
+            if (tender != null) tender.requiredLicense = null;
         }
         _lentLicenses.Clear();
     }
@@ -79,7 +79,7 @@ internal static class DemonstratorSetup
         var loco = OriginalLoco(controller);
         var tender = OriginalTender(controller);
 
-        string slotId = loco?.id ?? "";
+        string slotId = GameTypes.Id(loco) ?? "";
 
         // Before the early return, so a slot the mod leaves alone still reports what it charges.
         SnapshotPartsPrices(controller, slotId);
@@ -88,14 +88,14 @@ internal static class DemonstratorSetup
         if (!Resolve(loco, tender, slotId, out var replacementLoco, out var tenderId)) return;
 
         if (loco != null)
-            controller.locoLivery = replacementLoco ?? loco; // revert to vanilla when the override is cleared
+            controller.locoLivery = replacementLoco != null ? replacementLoco : loco; // revert to vanilla when the override is cleared
 
         // Update the quest board and poster image
         if (loco != null)
         {
-            var posterId = SlotTypes.IsSlotGarage(controller.garageSpawner?.garageType)
-                ? controller.locoLivery?.id
-                : replacementLoco?.id;
+            var posterId = SlotTypes.IsSlotGarage(GameTypes.GarageOf(controller))
+                ? GameTypes.Id(controller.locoLivery)
+                : GameTypes.Id(replacementLoco);
             SlotBoard.ApplyVisuals(controller.GetComponent<LocoRestorationView>(), controller.locoLivery, posterId);
         }
 
@@ -108,12 +108,12 @@ internal static class DemonstratorSetup
         // instantiated from the prefab. With neither, a wreck reset to S0 can never advance on its own.
         if (controller.locoBlockerPrefab == null)
             Main.Logger.Warning(
-                $"{controller.locoLivery?.id} has no loco zone blocker available, its restoration can't unblock itself.");
+                $"{GameTypes.Id(controller.locoLivery)} has no loco zone blocker available, its restoration can't unblock itself.");
 
         // A slot this mod added has no vanilla loco it stands in for, so its own loco is what the parts
         // cargo has to be named and modelled after.
-        var cargoLoco = replacementLoco
-            ?? (SlotTypes.IsSlotGarage(controller.garageSpawner?.garageType) ? controller.locoLivery : null);
+        var cargoLoco = replacementLoco != null ? replacementLoco
+            : SlotTypes.IsSlotGarage(GameTypes.GarageOf(controller)) ? controller.locoLivery : null;
         RestorationPartsCustomizer.ApplyCargo(controller, slotId, cargoLoco);
 
         controller.secondCarLivery = tenderId;
@@ -122,7 +122,7 @@ internal static class DemonstratorSetup
         {
             // To get the tender to display the demonstrator message, it has to inherit the license of the
             // locomotive. Most CCL mod authors don't license the tender, just the loco. Patch that for them.
-            LendLicense(tenderId, controller.locoLivery?.requiredLicense);
+            LendLicense(tenderId, controller.locoLivery != null ? controller.locoLivery.requiredLicense : null);
 
             controller.secondCarBlockerPrefab = ZoneBlockers.First(
                 ZoneBlockers.PrefabFor(tenderId),
@@ -152,12 +152,12 @@ internal static class DemonstratorSetup
 
         if (!Resolve(loco, OriginalTender(controller), loco.id, out var replacement, out var tender)) return true;
 
-        return controller.locoLivery == (replacement ?? loco) && controller.secondCarLivery == tender;
+        return controller.locoLivery == (replacement != null ? replacement : loco) && controller.secondCarLivery == tender;
     }
 
     internal static TrainCarLivery? OriginalLoco(LocoRestorationController controller) =>
-        controller.garageSpawner?.garageType is GarageType_v2 g ? VanillaGarages.PrimaryLoco(g) : controller.locoLivery;
+        GameTypes.GarageOf(controller) is GarageType_v2 g ? VanillaGarages.PrimaryLoco(g) : controller.locoLivery;
 
     internal static TrainCarLivery? OriginalTender(LocoRestorationController controller) =>
-        controller.garageSpawner?.garageType is GarageType_v2 g ? VanillaGarages.OriginalTender(g) : null;
+        GameTypes.GarageOf(controller) is GarageType_v2 g ? VanillaGarages.OriginalTender(g) : null;
 }

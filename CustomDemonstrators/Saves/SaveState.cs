@@ -6,9 +6,9 @@ namespace CustomDemonstrators.Saves;
 // Shared, read-only access to the currently loaded save.
 internal static class SaveState
 {
-    internal static SaveGameData? Data() => Manager()?.data;
+    internal static SaveGameData? Data() => Manager() is var manager && manager != null ? manager.data : null;
 
-    internal static bool IsNewSession => Manager()?.IsNewSession == true;
+    internal static bool IsNewSession => Manager() is var manager && manager != null && manager.IsNewSession;
 
     // Read the singleton without triggering SingletonBehaviour's auto-create
     private static SaveGameManager? Manager() =>

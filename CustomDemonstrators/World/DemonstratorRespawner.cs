@@ -20,7 +20,7 @@ internal static class DemonstratorRespawner
         var oldLoco = Traverse.Create(controller).Field("loco").GetValue<TrainCar>();
 
         // Revoke ownership of the wreck "garage" which takes it out of the comms radio
-        GarageUnlocks.Revoke(controller.garageSpawner?.garageType);
+        GarageUnlocks.Revoke(GameTypes.GarageOf(controller));
         SuppressPopups(controller);
 
         if (controller.State >= LocoRestorationController.RestorationState.S9_LocoServiced)
@@ -116,10 +116,10 @@ internal static class DemonstratorRespawner
         var restorationLicense = controller.requiredRestorationLicense;
         if (restorationLicense == null || !manager.IsGeneralLicenseAcquired(restorationLicense)) return;
 
-        string id = controller.locoLivery?.id ?? controller.name;
+        string id = GameTypes.Id(controller.locoLivery) ?? controller.name;
 
         // Still legitimately locked behind the locomotive license
-        var locoLicense = controller.locoLivery?.requiredLicense;
+        var locoLicense = controller.locoLivery != null ? controller.locoLivery.requiredLicense : null;
         if (locoLicense != null && !manager.IsGeneralLicenseAcquired(locoLicense))
         {
             AccessTools.Method(typeof(LocoRestorationController), "SetState")
@@ -136,7 +136,7 @@ internal static class DemonstratorRespawner
 
     internal static void SettleLoadedSlot(LocoRestorationController controller)
     {
-        if (!SlotTypes.IsSlotGarage(controller.garageSpawner?.garageType)) return;
+        if (!SlotTypes.IsSlotGarage(GameTypes.GarageOf(controller))) return;
 
         RevokeUnearnedOwnership(controller);
         RescueRerailedState(controller);
@@ -146,7 +146,7 @@ internal static class DemonstratorRespawner
     {
         if (controller.State >= LocoRestorationController.RestorationState.S9_LocoServiced) return;
 
-        GarageUnlocks.Revoke(controller.garageSpawner?.garageType,
+        GarageUnlocks.Revoke(GameTypes.GarageOf(controller),
             $"its restoration is only at {controller.State} and hasn't earned it.");
         GarageUnlocks.StopSpawning(controller.garageSpawner);
     }
@@ -173,7 +173,7 @@ internal static class DemonstratorRespawner
             LoadingDoneField?.SetValue(controller, loadingDone);
         }
 
-        Main.Logger.Log($"{controller.locoLivery?.id} was already back on its wheels with nothing left to "
+        Main.Logger.Log($"{GameTypes.Id(controller.locoLivery)} was already back on its wheels with nothing left to "
             + $"fire its rerail check; its restoration is now at {controller.State}.");
     }
 
@@ -247,7 +247,7 @@ internal static class DemonstratorRespawner
         }
         if (controller == null || t.Field("loco").GetValue<TrainCar>() == null)
         {
-            Main.Logger.Warning($"{controller?.locoLivery?.id} never spawned a wreck for its new demonstrator slot.");
+            Main.Logger.Warning($"{(controller != null ? GameTypes.Id(controller.locoLivery) : null)} never spawned a wreck for its new demonstrator slot.");
             yield break;
         }
 

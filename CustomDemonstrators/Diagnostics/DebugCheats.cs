@@ -56,9 +56,9 @@ internal static class DebugCheats
             var wreck = _restorationLocoField?.GetValue(controller) as TrainCar;
             GUILayout.Label($"    {controller.State}, wreck: {(wreck != null ? wreck.ID : "none")}"
                 + $", anchor: {AnchorOf(controller, wreck)}");
-            GUILayout.Label($"    parts: {controller.locoPartCargo?.id ?? "none"}"
+            GUILayout.Label($"    parts: {(controller.locoPartCargo != null ? controller.locoPartCargo.id : "none")}"
                 + $" ({(ownCargo != null ? "own copy" : "existing cargo, no copy made")})"
-                + $", order ${controller.orderPartsModule?.price ?? -1f:N0}");
+                + $", order ${Price(controller.orderPartsModule):N0}");
             GUILayout.Label($"    stall: {controller.destinationTrackId}"
                 + $" @ {(home != null ? home.transform.position.ToString("F1") : "none")}");
             GUILayout.Label($"    board: {SlotBoard.Describe(board)}");
@@ -94,16 +94,16 @@ internal static class DebugCheats
         foreach (var controller in LocoRestorationController.allLocoRestorationControllers)
         {
             if (controller == null) continue;
-            bool ours = SlotTypes.IsSlotGarage(controller.garageSpawner?.garageType);
+            bool ours = SlotTypes.IsSlotGarage(GameTypes.GarageOf(controller));
             // Vanilla gives every demonstrator its own stall, so two slots sharing a track here means a
             // placement was missed rather than that the game works that way.
             sb.AppendLine($"  {(ours ? "[added]" : "[vanilla]")} {controller.SaveID}: {controller.State}"
                 + $", stall {controller.destinationTrackId}"
-                + $", parts {controller.locoPartCargo?.id}"
-                + $" ({controller.locoPartCargo?.massPerUnit ?? -1f:N0} kg/unit)"
-                + $", order ${controller.orderPartsModule?.price ?? -1f:N0}"
-                + $", install ${controller.installPartsModule?.price ?? -1f:N0}"
-                + $", tender {controller.secondCarLivery?.id ?? "none"}");
+                + $", parts {(controller.locoPartCargo != null ? controller.locoPartCargo.id : null)}"
+                + $" ({(controller.locoPartCargo != null ? controller.locoPartCargo.massPerUnit : -1f):N0} kg/unit)"
+                + $", order ${Price(controller.orderPartsModule):N0}"
+                + $", install ${Price(controller.installPartsModule):N0}"
+                + $", tender {GameTypes.Id(controller.secondCarLivery) ?? "none"}");
         }
 
         foreach (var kv in SlotTypes.CargoMapping())
@@ -156,7 +156,7 @@ internal static class DebugCheats
         foreach (var c in controllers)
         {
             if (c == null) continue;
-            string locoName = Loc(c.locoLivery?.localizationKey, c.locoLivery?.id ?? "?");
+            string locoName = Loc(c.locoLivery != null ? c.locoLivery.localizationKey : null, GameTypes.Id(c.locoLivery) ?? "?");
             var target = WreckTarget(c);
 
             GUILayout.BeginHorizontal();
@@ -186,8 +186,8 @@ internal static class DebugCheats
         // In case of a bug where we cause the wreck not to spawn, take us to where it *should* be
         if (c.spawnPoints != null)
         {
-            var sp = c.spawnPoints.FirstOrDefault(p => p != null && p.pointUsed)
-                     ?? c.spawnPoints.FirstOrDefault(p => p != null);
+            var sp = c.spawnPoints.FirstOrDefault(p => p != null && p.pointUsed);
+            if (sp == null) sp = c.spawnPoints.FirstOrDefault(p => p != null);
             if (sp != null) return sp.transform;
         }
         return null;
@@ -195,5 +195,7 @@ internal static class DebugCheats
 
     private static string Loc(string? key, string fallback) =>
         string.IsNullOrEmpty(key) ? fallback : LocalizationAPI.L(key);
+
+    private static float Price(DV.Shops.GenericThingCashRegisterModule? module) => module != null ? module.price : -1f;
 }
 #endif
