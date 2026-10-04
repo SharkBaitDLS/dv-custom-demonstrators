@@ -391,7 +391,11 @@ internal static class RestorationPartsCustomizer
 
         foreach (var li in partsCargo.loadableCarTypes)
         {
-            bool isDm1u = li.carType != null && li.carType == dm1uType;
+            // If this is a modded flatcar, we don't try to guess at whether the DM1U or vanilla flatcar
+            // prefabs from the loco mod will fit and let it keep the vanilla crate prefab it offers.
+            if (li.carType == null || CustomCarLoaderHelper.IsCustomCarType(li.carType)) continue;
+
+            bool isDm1u = li.carType == dm1uType;
             var prefab = isDm1u ? dm1u : flatbed;
 
             if (prefab != null) li.cargoPrefabVariants = [prefab];

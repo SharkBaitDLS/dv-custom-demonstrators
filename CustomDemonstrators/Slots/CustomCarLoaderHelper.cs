@@ -19,6 +19,9 @@ internal static class CustomCarLoaderHelper
     internal static bool IsCustomCar(TrainCarLivery livery) =>
         CarTypeInjector.IdToLiveryMap.ContainsKey(livery.id);
 
+    internal static bool IsCustomCarType(TrainCarType_v2? carType) =>
+        carType != null && carType.liveries != null && carType.liveries.Any(l => l != null && IsCustomCar(l));
+
     internal static TrainCarLivery[] TrainsetFor(TrainCarLivery livery) =>
         CarManager.GetTrainsetForLivery(livery);
 
