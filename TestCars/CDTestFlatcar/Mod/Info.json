@@ -1,0 +1,13 @@
+{
+	"Id":"CDTestFlatcar",
+	"DisplayName":"CD Test Flatcar",
+	"Version":"1.0.0",
+	"Author":"SharkBaitDLS",
+	"HomePage":"",
+	"Repository":"",
+	"ManagerVersion":"0.27.3",
+	"Requirements":[
+		"DVCustomCarLoader"
+	],
+	"LoadAfter":[]
+}

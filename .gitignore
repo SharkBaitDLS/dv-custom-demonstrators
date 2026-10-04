@@ -398,3 +398,14 @@ FodyWeavers.xsd
 
 # .nfs files are created when an open file is removed but is still being accessed
 .nfs*
+
+# Test flatcar stuff
+!TestCars/**/*.meta
+TestCars/*/UnityProject/[Ll]ibrary/
+TestCars/*/UnityProject/[Tt]emp/
+TestCars/*/UnityProject/[Uu]ser[Ss]ettings/
+TestCars/*/UnityProject/*.csproj
+TestCars/*/UnityProject/*.sln
+TestCars/*/UnityProject/Assets/CarCreator/
+TestCars/*/UnityProject/Assets/CarCreator.meta
+!TestCars/*/UnityProject/Packages/*

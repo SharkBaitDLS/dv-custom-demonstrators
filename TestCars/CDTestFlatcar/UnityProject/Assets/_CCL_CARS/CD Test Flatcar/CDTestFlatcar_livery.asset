@@ -1,0 +1,69 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 945288799, guid: b247489fc36790c41b197410cd8386d9, type: 3}
+  m_Name: CDTestFlatcar_livery
+  m_EditorClassIdentifier: 
+  parentType: {fileID: 11400000, guid: b1d792e57ba0acf45bec5ae6ccb1a1bb, type: 2}
+  id: CDTestFlatcar
+  NameTranslationJson: '[{"Language":"English","Value":"CD Test Flatcar"}]'
+  NameTranslations:
+    Items:
+    - Language: 0
+      Value: CD Test Flatcar
+  icon: {fileID: 0}
+  localizationKey: ccl/livery/CDTestFlatcar
+  prefab: {fileID: 1688182864204300644, guid: 1b35f11af98eb4c40a150e9f0211f1f0, type: 3}
+  interiorPrefab: {fileID: 0}
+  explodedInteriorPrefab: {fileID: 0}
+  externalInteractablesPrefab: {fileID: 1312500395324393714, guid: 287ee644e70754a4588fe65b904c7a89,
+    type: 3}
+  explodedExternalInteractablesPrefab: {fileID: 0}
+  FrontBogie: 200
+  RearBogie: 200
+  BufferType: 200
+  HasMUCable: 0
+  UseCustomHosePositions: 0
+  HideHookPlates: 0
+  HideFrontCoupler: 0
+  HideBackCoupler: 0
+  TrainsetLiveries: []
+  LocoSpawnGroups: []
+  _spawnGroupJson: '[]'
+  UnlockableAsWorkTrain: 0
+  UnlockPrice: 30000
+  SummonPrice: 5000
+  CatalogPage: {fileID: 0}
+  MaxRepeatedSpawn: 0
+  AllowOnRegionalRoutes: 1
+  AllowOnExpressRoutes: 1
+  DemonstratorPartsOrderCost: 15000
+  DemonstratorPartsInstallationCost: 10000
+  DemonstratorPartName:
+    Items:
+    - Language: 0
+      Value: CD Test Flatcar Drivetrain
+  DemonstratorPartNameShort:
+    Items:
+    - Language: 0
+      Value: CD Test Flatcar Drivetrain
+  DemonstratorPoster: {fileID: 0}
+  DemonstratorIcon: {fileID: 0}
+  DemonstratorRustedIcon: {fileID: 0}
+  PartsModel: 0
+  PartsCargoPrefabDM1U: {fileID: 0}
+  PartsCargoPrefabFlatbed: {fileID: 0}
+  PartsCargoMass: 10000
+  LockedGaragePrefab: {fileID: 0}
+  _demoPartNameJson: '{"Items":[{"Language":"English","Value":"CD Test Flatcar Drivetrain"}]}'
+  _demoPartNameShortJson: '{"Items":[{"Language":"English","Value":"CD Test Flatcar
+    Drivetrain"}]}'
+  _buttons: 0

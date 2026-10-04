@@ -1,0 +1,68 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -80308, guid: b247489fc36790c41b197410cd8386d9, type: 3}
+  m_Name: CDTestFlatcar_cargo
+  m_EditorClassIdentifier: 
+  Entries:
+  - CargoId: TrainPartsDE2
+    AmountPerCar: 1
+    OverrideLoadedIcon: 0
+    LoadedIcon: {fileID: 0}
+    Models:
+    - {fileID: 6622127271969340846, guid: 529056668ab2ef24d970fdbe4713fa25, type: 3}
+  - CargoId: TrainPartsDE6
+    AmountPerCar: 1
+    OverrideLoadedIcon: 0
+    LoadedIcon: {fileID: 0}
+    Models:
+    - {fileID: 2611596518310680686, guid: c628eee64dab37341a46e1f55efec89d, type: 3}
+  - CargoId: TrainPartsDH4
+    AmountPerCar: 1
+    OverrideLoadedIcon: 0
+    LoadedIcon: {fileID: 0}
+    Models:
+    - {fileID: 5369774355698921162, guid: dbe8eae041083a0429cac511c85c06f8, type: 3}
+  - CargoId: TrainPartsDM3
+    AmountPerCar: 1
+    OverrideLoadedIcon: 0
+    LoadedIcon: {fileID: 0}
+    Models:
+    - {fileID: 4432953707124541734, guid: ed7dd8565dcfbce40b952d553c79c2eb, type: 3}
+  - CargoId: TrainPartsS060
+    AmountPerCar: 1
+    OverrideLoadedIcon: 0
+    LoadedIcon: {fileID: 0}
+    Models:
+    - {fileID: 8363281079729475639, guid: 10492b53ab71f0b479ec66c47d0db506, type: 3}
+  - CargoId: TrainPartsS282A
+    AmountPerCar: 1
+    OverrideLoadedIcon: 0
+    LoadedIcon: {fileID: 0}
+    Models:
+    - {fileID: 8776796847461291289, guid: e3cfebb6e40e9d7458582e04740c8577, type: 3}
+  _json: '[{"AmountPerCar":1,"CargoId":"TrainPartsDE2","OverrideLoadedIcon":false},{"AmountPerCar":1,"CargoId":"TrainPartsDE6","OverrideLoadedIcon":false},{"AmountPerCar":1,"CargoId":"TrainPartsDH4","OverrideLoadedIcon":false},{"AmountPerCar":1,"CargoId":"TrainPartsDM3","OverrideLoadedIcon":false},{"AmountPerCar":1,"CargoId":"TrainPartsS060","OverrideLoadedIcon":false},{"AmountPerCar":1,"CargoId":"TrainPartsS282A","OverrideLoadedIcon":false}]'
+  _sprite:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  _models:
+  - {fileID: 6622127271969340846, guid: 529056668ab2ef24d970fdbe4713fa25, type: 3}
+  - {fileID: 2611596518310680686, guid: c628eee64dab37341a46e1f55efec89d, type: 3}
+  - {fileID: 5369774355698921162, guid: dbe8eae041083a0429cac511c85c06f8, type: 3}
+  - {fileID: 4432953707124541734, guid: ed7dd8565dcfbce40b952d553c79c2eb, type: 3}
+  - {fileID: 8363281079729475639, guid: 10492b53ab71f0b479ec66c47d0db506, type: 3}
+  - {fileID: 8776796847461291289, guid: e3cfebb6e40e9d7458582e04740c8577, type: 3}
+  _counts: 010000000100000001000000010000000100000001000000
+  _buttons: 0

@@ -1,0 +1,45 @@
+ManifestFileVersion: 0
+CRC: 1860913258
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: 237472b17ce0c106269005819085f5bc
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: 3e24906231a7a3cfda08bbb894305026
+HashAppended: 0
+ClassTypes:
+- Class: 1
+  Script: {instanceID: 0}
+- Class: 4
+  Script: {instanceID: 0}
+- Class: 21
+  Script: {instanceID: 0}
+- Class: 23
+  Script: {instanceID: 0}
+- Class: 33
+  Script: {instanceID: 0}
+- Class: 43
+  Script: {instanceID: 0}
+- Class: 48
+  Script: {instanceID: 0}
+- Class: 65
+  Script: {instanceID: 0}
+- Class: 114
+  Script: {fileID: 339424471, guid: b247489fc36790c41b197410cd8386d9, type: 3}
+- Class: 114
+  Script: {fileID: -80308, guid: b247489fc36790c41b197410cd8386d9, type: 3}
+- Class: 114
+  Script: {fileID: 711031822, guid: b247489fc36790c41b197410cd8386d9, type: 3}
+- Class: 114
+  Script: {fileID: -701297949, guid: b247489fc36790c41b197410cd8386d9, type: 3}
+- Class: 114
+  Script: {fileID: 945288799, guid: b247489fc36790c41b197410cd8386d9, type: 3}
+- Class: 115
+  Script: {instanceID: 0}
+- Class: 136
+  Script: {instanceID: 0}
+SerializeReferenceClassIdentifiers: []
+Assets:
+- Assets/_CCL_CARS/CD Test Flatcar/CDTestFlatcar_pack.asset
+Dependencies: []
