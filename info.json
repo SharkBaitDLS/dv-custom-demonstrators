@@ -7,7 +7,7 @@
 	"ManagerVersion": "0.27.3",
 	"Requirements": [
 		"DVLangHelper",
-		"DVCustomCarLoader-3.1.9"
+		"DVCustomCarLoader-3.1.10"
 	],
 	"LoadAfter": [
 		"DVLangHelper",

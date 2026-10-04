@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using DV.ThingTypes;
 using DV.Utils;
 using UnityEngine;
+using CustomDemonstrators.Slots;
 
 namespace CustomDemonstrators.World;
 
@@ -19,7 +20,8 @@ internal static class GarageStandIn
         var cars = new List<(GameObject Car, float Length, float Centre)>();
         foreach (var livery in liveries)
         {
-            var car = CarModel.Build(livery, root.transform);
+            var car = Authored(livery, root.transform);
+            if (car == null) car = CarModel.Build(livery, root.transform);
             if (car == null) continue;
 
             var bounds = CarModel.LocalBounds(car);
@@ -38,6 +40,23 @@ internal static class GarageStandIn
         root.transform.SetPositionAndRotation(pose, facing);
         root.SetActive(true);
         return root;
+    }
+
+    private static GameObject? Authored(TrainCarLivery livery, Transform parent)
+    {
+        var prefab = CustomCarLoaderHelper.LockedGaragePrefabFor(livery);
+        if (prefab == null) return null;
+
+        var car = Object.Instantiate(prefab, parent, worldPositionStays: false);
+        car.name = livery.id;
+        car.SetActive(true);
+
+        if (car.GetComponentInChildren<Renderer>(includeInactive: true) != null) return car;
+
+        Main.Logger.Warning($"The locked garage prefab for '{livery.id}' has nothing drawable, "
+            + "so it will be built by CD instead.");
+        Object.DestroyImmediate(car);
+        return null;
     }
 
     private static void Arrange(

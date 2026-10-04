@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using DV.ThingTypes;
 using UnityEngine;
 
@@ -48,12 +49,17 @@ internal static class CarModel
         var bounds = new Bounds();
         bool any = false;
 
-        foreach (var filter in car.GetComponentsInChildren<MeshFilter>(includeInactive: true))
+        var meshes = car.GetComponentsInChildren<MeshFilter>(includeInactive: true)
+            .Select(f => (f.sharedMesh, f.transform))
+            // Skinned meshes come in from a mod author's prefab
+            .Concat(car.GetComponentsInChildren<SkinnedMeshRenderer>(includeInactive: true)
+                .Select(s => (s.sharedMesh, s.transform)));
+
+        foreach (var (mesh, transform) in meshes)
         {
-            var mesh = filter.sharedMesh;
             if (mesh == null) continue;
 
-            var toCar = car.transform.worldToLocalMatrix * filter.transform.localToWorldMatrix;
+            var toCar = car.transform.worldToLocalMatrix * transform.localToWorldMatrix;
             foreach (var corner in Corners)
             {
                 var point = toCar.MultiplyPoint3x4(

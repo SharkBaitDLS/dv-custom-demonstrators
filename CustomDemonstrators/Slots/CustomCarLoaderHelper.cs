@@ -52,6 +52,9 @@ internal static class CustomCarLoaderHelper
     internal static Texture2D? PosterFor(TrainCarLivery? livery) =>
         Variant(livery) is var v && v != null ? v.DemonstratorPoster : null;
 
+    internal static GameObject? LockedGaragePrefabFor(TrainCarLivery? livery) =>
+        Variant(livery) is var v && v != null ? v.LockedGaragePrefab : null;
+
     // The localization keys CCL registers the parts name under, or null when not set by the mod author
     internal static string? PartsNameKeyFor(TrainCarLivery? livery) =>
         Variant(livery) is CCL_CarVariant v && HasText(v.DemonstratorPartName) ? v.DemoPartsNameTranslationKey : null;
