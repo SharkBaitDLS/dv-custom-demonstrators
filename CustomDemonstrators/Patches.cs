@@ -113,6 +113,12 @@ internal static class Additions
     }
 }
 
+[HarmonyPatch(typeof(CarSpawner), "PrepareTrainCarForDeleting")]
+internal static class CarSpawner_PrepareTrainCarForDeleting_Patch
+{
+    private static void Postfix(TrainCar trainCar) => CarLifecycle.OnPreparedForDelete(trainCar);
+}
+
 // Restoration steps announce themselves through a popup that only holds one message at a time, so
 // slots sharing a license would clobber each other when the license is purchased. Instead, queue them.
 [HarmonyPatch(typeof(LocoRestorationController), "SetState")]

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using DV.Customization.Gadgets;
 using DV.Logic.Job;
+using DV.LocoRestoration;
 using DV.ServicePenalty;
 using DV.Utils;
 using HarmonyLib;
@@ -104,7 +105,6 @@ internal static class CarLifecycle
         AccessTools.Field(typeof(CarSpawner), "deletedUniqueCarLiveryToLastCarState");
 
     private static readonly HashSet<TrainCar> _forgetting = [];
-    private static CarSpawner? _watching;
 
     // Deleting a uniqueCar stashes its whole state under its livery and reserves its loco ID,
     // so that it will respawn in the same state with the same ID. When we want to delete one
@@ -117,18 +117,46 @@ internal static class CarLifecycle
         {
             if (car != null) _forgetting.Add(car);
         }
-
-        var spawner = SingletonBehaviour<CarSpawner>.Instance;
-        if (_forgetting.Count == 0 || spawner == null || spawner == _watching) return;
-
-        if (_watching != null) _watching.CarAboutToBeDeleted -= OnCarAboutToBeDeleted;
-        spawner.CarAboutToBeDeleted += OnCarAboutToBeDeleted;
-        _watching = spawner;
     }
 
-    private static void OnCarAboutToBeDeleted(TrainCar car)
+    internal static void OnPreparedForDelete(TrainCar car)
     {
-        if (_forgetting.Remove(car)) ForgetStashedState(car);
+        if (_forgetting.Remove(car))
+        {
+            ForgetStashedState(car);
+        }
+        else if (car.uniqueCar && !UnloadWatcher.isUnloading && !IsOwned(car))
+        {
+            ForgetOrphan(car);
+        }
+    }
+
+    private static void ForgetOrphan(TrainCar car)
+    {
+        var id = car.ID;
+        ForgetStashedState(car);
+
+        // The owned-car entry is only staged once the car is actually destroyed.
+        void OnDestroyed(TrainCar destroyed)
+        {
+            destroyed.OnDestroyCar -= OnDestroyed;
+            var owned = SingletonBehaviour<OwnedCarsStateController>.Instance;
+            if (owned == null || owned.currentlyDestroyedOwnedCarStates.RemoveAll(d => d.ID == id) == 0) return;
+
+            owned.UpdateSortedList();
+            Main.Logger.Log($"Dropped the owned-car entry of deleted {destroyed.carLivery.id} [{id}], which had "
+                + "no garage or demonstrator slot left to bring it back.");
+        }
+        car.OnDestroyCar += OnDestroyed;
+    }
+
+    private static bool IsOwned(TrainCar car)
+    {
+        return LocoRestorationController.GetForTrainCar(car) != null
+            || LocoRestorationController.allLocoRestorationControllers.Any(c =>
+                c != null && c.garageSpawner != null && c.garageSpawner.garageCars != null
+                && c.garageSpawner.garageCars.Contains(car))
+            || WorkTrainGarages.IsHeldByAGarage(car);
     }
 
     private static void ForgetStashedState(TrainCar car)

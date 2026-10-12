@@ -138,7 +138,7 @@ internal static class WorkTrainGarages
         }
     }
 
-    private static bool IsHeldByAGarage(TrainCar car) =>
+    internal static bool IsHeldByAGarage(TrainCar car) =>
         GarageCarSpawner.Spawners.Values.Any(s => s != null && s.garageCars != null && s.garageCars.Contains(car));
 
     internal static void ReleaseCars(GarageCarSpawner? spawner)
