@@ -106,6 +106,16 @@ internal static class DebugCheats
                 + $", tender {GameTypes.Id(controller.secondCarLivery) ?? "none"}");
         }
 
+        foreach (var snapshot in RestorationTemplates.All)
+        {
+            sb.AppendLine($"  template {snapshot.Loco.id}: garage {snapshot.Garage.id}"
+                + $", second car {GameTypes.Id(snapshot.SecondCar) ?? "none"}"
+                + $", parts {(snapshot.PartsCargo != null ? snapshot.PartsCargo.id : "none")}"
+                + $", order ${snapshot.OrderPrice:N0}, install ${snapshot.InstallPrice:N0}"
+                + $", board {(snapshot.Board != null ? "copied" : "none")}"
+                + $", museum {(snapshot.Source != null ? "live" : "gone")}");
+        }
+
         foreach (var kv in SlotTypes.CargoMapping())
         {
             sb.AppendLine($"  cargo mapping: {kv.Key} = {kv.Value}");

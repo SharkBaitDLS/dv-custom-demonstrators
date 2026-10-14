@@ -86,13 +86,21 @@ internal static class SlotScene
     }
 
     internal static GarageCarSpawner CreateSpawner(
-        GameObject host, GarageType_v2 garage, GameObject home, GarageCarSpawner template)
+        GameObject host, GarageType_v2 garage, GameObject home, GarageCarSpawner template) =>
+        CreateSpawner(host, garage, home, template.spawnLocoPlayerSqrDistanceFromTrack, template.flipSpawnLoco);
+
+    internal static GarageCarSpawner CreateSpawner(
+        GameObject host, GarageType_v2 garage, GameObject home, RestorationTemplates.Snapshot template) =>
+        CreateSpawner(host, garage, home, template.SpawnLocoPlayerSqrDistanceFromTrack, template.FlipSpawnLoco);
+
+    private static GarageCarSpawner CreateSpawner(
+        GameObject host, GarageType_v2 garage, GameObject home, float playerSqrDistanceFromTrack, bool flip)
     {
         var spawner = host.AddComponent<GarageCarSpawner>();
         spawner.garageType = garage;
         spawner.locoSpawnPoint = home;
-        spawner.spawnLocoPlayerSqrDistanceFromTrack = template.spawnLocoPlayerSqrDistanceFromTrack;
-        spawner.flipSpawnLoco = template.flipSpawnLoco;
+        spawner.spawnLocoPlayerSqrDistanceFromTrack = playerSqrDistanceFromTrack;
+        spawner.flipSpawnLoco = flip;
         return spawner;
     }
 
@@ -113,12 +121,13 @@ internal static class SlotScene
                 && r.registerModules.Contains(module));
 
     internal static (GenericThingCashRegisterModule order, GenericThingCashRegisterModule install)
-        CreateRegisterModules(string locoId, LocoRestorationController template, CashRegisterWithModules? register)
+        CreateRegisterModules(string locoId, RestorationTemplates.Snapshot template, LocoRestorationController museum,
+            CashRegisterWithModules? register)
     {
-        var host = register != null ? register.gameObject : template.orderPartsModule.gameObject;
+        var host = register != null ? register.gameObject : museum.orderPartsModule.gameObject;
 
-        var order = AddModule(host, template.orderPartsModule);
-        var install = AddModule(host, template.installPartsModule);
+        var order = AddModule(host, template.OrderPrice, template.OrderKey);
+        var install = AddModule(host, template.InstallPrice, template.InstallKey);
 
         if (register != null)
         {
@@ -140,11 +149,11 @@ internal static class SlotScene
         return (order, install);
     }
 
-    private static GenericThingCashRegisterModule AddModule(GameObject host, GenericThingCashRegisterModule template)
+    private static GenericThingCashRegisterModule AddModule(GameObject host, float price, string localizationKey)
     {
         var module = host.AddComponent<GenericThingCashRegisterModule>();
-        module.price = template.price;
-        module.localizationKey = template.localizationKey;
+        module.price = price;
+        module.localizationKey = localizationKey;
         InitializeData?.Invoke(module, null);
         return module;
     }
@@ -225,7 +234,7 @@ internal static class SlotScene
     }
 
     internal static LocoRestorationController CreateController(
-        GameObject host, TrainCarLivery loco, TrainCarLivery? tender, LocoRestorationController template,
+        GameObject host, TrainCarLivery loco, TrainCarLivery? tender, RestorationTemplates.Snapshot template,
         GarageCarSpawner spawner, GenericThingCashRegisterModule order, GenericThingCashRegisterModule install,
         LocoRestorationSpawnPoint[] spawnPoints, string destinationTrackId)
     {
@@ -233,11 +242,7 @@ internal static class SlotScene
 
         // Everything the slot shares with the museum at large — restoration license, destination track,
         // themes, part delivery warehouse — is copied wholesale, then the per-slot pieces are overridden.
-        foreach (var field in typeof(LocoRestorationController)
-            .GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
-        {
-            field.SetValue(controller, field.GetValue(template));
-        }
+        template.CopyTo(controller);
 
         controller.locoLivery = loco;
         controller.secondCarLivery = tender;
@@ -251,11 +256,11 @@ internal static class SlotScene
         // from a prefab. Fall back to the template if we can't find one.
         controller.locoBlockerPrefab = ZoneBlockers.First(
             ZoneBlockers.PrefabFor(loco),
-            ZoneBlockers.PrefabFor(template.locoLivery),
+            ZoneBlockers.PrefabFor(template.Loco),
             controller.locoBlockerPrefab);
         controller.secondCarBlockerPrefab = ZoneBlockers.First(
             ZoneBlockers.PrefabFor(tender),
-            ZoneBlockers.PrefabFor(template.secondCarLivery),
+            ZoneBlockers.PrefabFor(template.SecondCar),
             controller.secondCarBlockerPrefab,
             controller.locoBlockerPrefab);
 

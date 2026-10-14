@@ -177,7 +177,10 @@ internal static class DemonstratorSlots
         var loco = Livery(locoId);
         if (loco == null) return false;
 
-        var garage = SlotTypes.GetOrCreateGarage(locoId, loco, tender, template.garageSpawner.garageType);
+        var snapshot = RestorationTemplates.Of(template);
+        if (snapshot == null) return false;
+
+        var garage = SlotTypes.GetOrCreateGarage(locoId, loco, tender, snapshot.Garage);
         GarageLiveries.ApplySummonPrice(garage, VanillaGarages.DefaultDemonstratorSummonPrice());
         types.garages.Add(garage);
         SlotTypes.AllowSummoning(garage);
@@ -188,8 +191,8 @@ internal static class DemonstratorSlots
         var home = SlotScene.CreateHome(locoId, template.garageSpawner);
         built.Home = home.Marker;
         built.Register = SlotScene.FindRegister(template.orderPartsModule);
-        (built.Order, built.Install) = SlotScene.CreateRegisterModules(locoId, template, built.Register);
-        built.CargoTemplate = template.locoPartCargo;
+        (built.Order, built.Install) = SlotScene.CreateRegisterModules(locoId, snapshot, template, built.Register);
+        built.CargoTemplate = snapshot.PartsCargo;
 
         var destination = SlotScene.DestinationTrackFor(locoId, home, template.destinationTrackId);
 
@@ -200,9 +203,9 @@ internal static class DemonstratorSlots
         var board = pending?.Board;
         var host = board != null ? board : SlotScene.CreateContainer(locoId, template.transform.parent);
 
-        built.Spawner = SlotScene.CreateSpawner(host, garage, built.Home, template.garageSpawner);
+        built.Spawner = SlotScene.CreateSpawner(host, garage, built.Home, snapshot);
         built.Controller = SlotScene.CreateController(
-            host, loco, tender, template, built.Spawner, built.Order, built.Install, spawnPoints, destination);
+            host, loco, tender, snapshot, built.Spawner, built.Order, built.Install, spawnPoints, destination);
 
         // Installing a board into the museum is what wakes it
         if (pending is SlotBoard.Pending ready)

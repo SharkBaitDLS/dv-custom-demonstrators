@@ -24,6 +24,7 @@ internal static class WorldStreamingInit_Awake_Patch
         MuseumStalls.Reset();
         GarageHomes.Reset();
         DemonstratorSlots.Reset();
+        RestorationTemplates.Reset();
         AddedGarages.Reset();
         RestorationPopups.Reset();
         GaragePreviews.Reset();
@@ -62,8 +63,14 @@ internal static class CommsRadioCrewVehicle_Awake_Patch
 [HarmonyPatch(typeof(LocoRestorationController), "Awake")]
 internal static class LocoRestorationController_Awake_Patch
 {
-    private static void Postfix(LocoRestorationController __instance)
+    // Capture the templates even though Mapify has suppressed Awake
+    private static void Prefix(LocoRestorationController __instance) => RestorationTemplates.Capture(__instance);
+
+    private static void Postfix(LocoRestorationController __instance, bool __runOriginal)
     {
+        // If this was a mapify load, then the original museum has already been destroyed
+        if (!__runOriginal) return;
+
         GarageLiveries.Apply();
         DemonstratorSetup.ApplyTo(__instance);
     }
