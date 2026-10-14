@@ -1,6 +1,7 @@
 using DV;
 using DV.LocoRestoration;
 using HarmonyLib;
+using CustomDemonstrators.Maps;
 using CustomDemonstrators.Saves;
 using CustomDemonstrators.Slots;
 using CustomDemonstrators.World;
@@ -25,6 +26,7 @@ internal static class WorldStreamingInit_Awake_Patch
         GarageHomes.Reset();
         DemonstratorSlots.Reset();
         RestorationTemplates.Reset();
+        MapStalls.Reset();
         AddedGarages.Reset();
         RestorationPopups.Reset();
         GaragePreviews.Reset();
@@ -115,6 +117,7 @@ internal static class Additions
     internal static void BuildAll()
     {
         GarageLiveries.RepointSpawners(GarageLiveries.Apply());
+        MapStalls.ReportOnce();
         DemonstratorSlots.BuildAll();
         AddedGarages.BuildAll();
     }

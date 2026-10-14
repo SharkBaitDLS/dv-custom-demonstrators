@@ -8,6 +8,7 @@ using DV.LocoRestoration;
 using DV.Utils;
 using HarmonyLib;
 using UnityEngine;
+using CustomDemonstrators.Maps;
 using CustomDemonstrators.Saves;
 using CustomDemonstrators.World;
 
@@ -21,6 +22,7 @@ internal static class DebugCheats
         DrawMoney();
         DrawDemonstratorTeleports();
         DrawAdditionalSlots();
+        MapAuthoring.Draw();
         DrawReports();
     }
 
