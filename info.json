@@ -1,6 +1,6 @@
 {
 	"Id": "CustomDemonstrators",
-	"Version": "1.0.4",
+	"Version": "1.1.0",
 	"DisplayName": "Custom Demonstrators",
 	"Author": "SharkBaitDLS",
 	"EntryMethod": "CustomDemonstrators.Main.Load",
@@ -12,7 +12,9 @@
 	"LoadAfter": [
 		"DVLangHelper",
 		"DVCustomCarLoader",
-		"DVCustomCargo"
+		"DVCustomCargo",
+		"Multiplayer"
 	],
+	"MultiplayerCompatibility": "All",
 	"Repository": "https://raw.githubusercontent.com/SharkBaitDLS/dv-custom-demonstrators/main/repository.json"
 }

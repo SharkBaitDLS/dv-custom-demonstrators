@@ -5,6 +5,7 @@ using DV.Localization;
 using DV.ThingTypes;
 using UnityEngine;
 using UnityModManagerNet;
+using CustomDemonstrators.Multiplayer;
 using CustomDemonstrators.Slots;
 using CustomDemonstrators.Saves;
 using CustomDemonstrators.World;
@@ -59,11 +60,25 @@ internal static class SettingsGUI
         If you load an existing save and your settings do not match what already exists in it, this mod will do nothing until you either press the apply settings buttons below or adopt the save's own settings.
         """;
 
+    private const string JoinedText =
+        "You're playing in a multiplayer session. The host's settings are in effect. "
+        + "Your own settings will be restored when you leave.";
+
+    private const string HostingText =
+        "This can't be done while hosting a multiplayer session. Load the save in single "
+        + "player to do it, save, and then host the session.";
+
     internal static void OnGUI(UnityModManager.ModEntry entry)
     {
         if (GameTypes.Current == null)
         {
             GUILayout.Label("Waiting for game data to load…");
+            return;
+        }
+
+        if (MultiplayerSupport.IsJoined)
+        {
+            GUILayout.Label(JoinedText, GUILayout.ExpandWidth(true));
             return;
         }
 
@@ -101,20 +116,14 @@ internal static class SettingsGUI
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label("Demonstrator changes are not in effect for this save because its demonstrator "
                 + "settings differ from the ones it was created with.");
-            if (GUILayout.Button("Adopt this save's settings", GUILayout.Width(360)))
-                Adopt(entry, SaveGuard.AdoptDemonstrators);
-            GUILayout.Label("Your demonstrator settings will be changed to match what this save was configured "
-                + "with. Nothing in the world moves or respawns.");
-            GUILayout.Space(4);
-            if (GUILayout.Button("Apply settings to this save", GUILayout.Width(360)))
-                SaveGuard.ForceApplyDemonstrators();
-            GUILayout.Label("Moving a demonstrator changes where it is delivered for restoration and where it "
-                + "respawns when cleared, but does not move the actual locomotive. "
-                + "Demonstrator slots whose locomotive or tender changed will respawn as a fresh wreck at "
-                + "a new location, and any demonstrators in those slots are removed. Removed demonstrators that are "
-                + "unrestored will be deleted, while any restored locmotives stays in the world but will no longer be "
-                + "summonable from the comms radio or respawn when cleared. If a demonstrator only moves between slots "
-                + "it will remain unchanged in the world even if unrestored.");
+            if (MultiplayerSupport.IsHosting)
+            {
+                GUILayout.Label(HostingText);
+            }
+            else
+            {
+                DrawDemonstratorFixes(entry);
+            }
             GUILayout.EndVertical();
             GUILayout.Space(6);
         }
@@ -124,19 +133,49 @@ internal static class SettingsGUI
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label("Garage changes are not in effect for this save because its garage settings differ "
                 + "from the ones it was created with.");
-            if (GUILayout.Button("Adopt this save's settings", GUILayout.Width(360)))
-                Adopt(entry, SaveGuard.AdoptGarages);
-            GUILayout.Label("Your garage settings will be changed to match what this save was configured with.");
-            GUILayout.Space(4);
-            if (GUILayout.Button("Apply settings to this save", GUILayout.Width(360)))
-                SaveGuard.ForceApplyGarages();
-            GUILayout.Label("Each opened garage respawns your chosen replacement. Cars you've already removed from an "
-                + "unlocked garage are kept as owned by your player but will no longer be summonable by the comms radio. "
-                + "Garages you have added are built, moved or removed in the same way. A car one of them "
-                + "already spawned stays where it is until it is summoned or cleared.");
+            if (MultiplayerSupport.IsHosting)
+            {
+                GUILayout.Label(HostingText);
+            }
+            else
+            {
+                DrawGarageFixes(entry);
+            }
             GUILayout.EndVertical();
             GUILayout.Space(6);
         }
+    }
+
+    private static void DrawDemonstratorFixes(UnityModManager.ModEntry entry)
+    {
+        if (GUILayout.Button("Adopt this save's settings", GUILayout.Width(360)))
+            Adopt(entry, SaveGuard.AdoptDemonstrators);
+        GUILayout.Label("Your demonstrator settings will be changed to match what this save was configured "
+            + "with. Nothing in the world moves or respawns.");
+        GUILayout.Space(4);
+        if (GUILayout.Button("Apply settings to this save", GUILayout.Width(360)))
+            SaveGuard.ForceApplyDemonstrators();
+        GUILayout.Label("Moving a demonstrator changes where it is delivered for restoration and where it "
+            + "respawns when cleared, but does not move the actual locomotive. "
+            + "Demonstrator slots whose locomotive or tender changed will respawn as a fresh wreck at "
+            + "a new location, and any demonstrators in those slots are removed. Removed demonstrators that are "
+            + "unrestored will be deleted, while any restored locmotives stays in the world but will no longer be "
+            + "summonable from the comms radio or respawn when cleared. If a demonstrator only moves between slots "
+            + "it will remain unchanged in the world even if unrestored.");
+    }
+
+    private static void DrawGarageFixes(UnityModManager.ModEntry entry)
+    {
+        if (GUILayout.Button("Adopt this save's settings", GUILayout.Width(360)))
+            Adopt(entry, SaveGuard.AdoptGarages);
+        GUILayout.Label("Your garage settings will be changed to match what this save was configured with.");
+        GUILayout.Space(4);
+        if (GUILayout.Button("Apply settings to this save", GUILayout.Width(360)))
+            SaveGuard.ForceApplyGarages();
+        GUILayout.Label("Each opened garage respawns your chosen replacement. Cars you've already removed from an "
+            + "unlocked garage are kept as owned by your player but will no longer be summonable by the comms radio. "
+            + "Garages you have added are built, moved or removed in the same way. A car one of them "
+            + "already spawned stays where it is until it is summoned or cleared.");
     }
 
     private static void Adopt(UnityModManager.ModEntry entry, System.Action adopt)

@@ -3,12 +3,15 @@ using System.Reflection;
 using HarmonyLib;
 using UnityModManagerNet;
 using CustomDemonstrators.Config;
+using CustomDemonstrators.Multiplayer;
 
 namespace CustomDemonstrators;
 
 public static class Main
 {
-    internal static Settings Settings { get; private set; } = null!;
+    internal static Settings Settings { get; set; } = null!;
+
+    internal static UnityModManager.ModEntry ModEntry { get; private set; } = null!;
 
     internal static UnityModManager.ModEntry.ModLogger Logger { get; private set; } = null!;
 
@@ -16,6 +19,7 @@ public static class Main
 
     private static bool Load(UnityModManager.ModEntry modEntry)
     {
+        ModEntry = modEntry;
         Logger = modEntry.Logger;
         ModPath = modEntry.Path;
         Settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
@@ -33,8 +37,13 @@ public static class Main
             return false;
         }
 
+        MultiplayerSupport.TryInit();
+
         modEntry.OnGUI = SettingsGUI.OnGUI;
-        modEntry.OnSaveGUI = entry => Settings.Save(entry);
+        modEntry.OnSaveGUI = entry =>
+        {
+            if (!MultiplayerSupport.IsJoined) Settings.Save(entry);
+        };
         return true;
     }
 }

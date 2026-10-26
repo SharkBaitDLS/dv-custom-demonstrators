@@ -70,6 +70,11 @@
 		</Reference>
 	</ItemGroup>
 
+	<!-- Multiplayer: optional, its API ships with the Multiplayer mod rather than with us -->
+	<ItemGroup>
+		<PackageReference Include="DVMultiplayerAPI" Version="1.1.0" ExcludeAssets="runtime" PrivateAssets="all"/>
+	</ItemGroup>
+
 	<!-- Unity -->
 	<ItemGroup>
 		<Reference Include="UnityEngine">
@@ -103,7 +108,8 @@
 
 	<!-- Mod Loader -->
 	<ItemGroup>
-		<PackageReference Include="UnityModManager" Version="0.27.2"/>
+		<!-- The Multiplayer API asks for a newer one, but only to build against; the game's own is what runs -->
+		<PackageReference Include="UnityModManager" Version="0.27.2" NoWarn="NU1605"/>
 	</ItemGroup>
 
 	<!-- Unity Analyzers: Unity-aware null checks and other Unity-specific diagnostics -->

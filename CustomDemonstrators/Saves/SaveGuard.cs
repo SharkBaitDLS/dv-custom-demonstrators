@@ -55,6 +55,7 @@ internal static class SaveGuard
     private static bool WriteFingerprint(string key, Func<string> fingerprint)
     {
         SaveState.Data()?.SetString(key, fingerprint());
+        SaveConfig.Reset();
         return true;
     }
 

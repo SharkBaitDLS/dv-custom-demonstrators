@@ -1,6 +1,8 @@
+using System.Reflection;
 using DV;
 using DV.LocoRestoration;
 using HarmonyLib;
+using CustomDemonstrators.Multiplayer;
 using CustomDemonstrators.Saves;
 using CustomDemonstrators.Slots;
 using CustomDemonstrators.World;
@@ -29,7 +31,15 @@ internal static class WorldStreamingInit_Awake_Patch
         GaragePreviews.Reset();
         GarageLiveries.DropDeadRegistrations();
         DemonstratorSetup.ReturnLentLicenses();
+        HostRecord.NoteWorldBuilding();
     }
+}
+
+// Multiplayer client post-save load
+[HarmonyPatch(typeof(SaveGameManager), nameof(SaveGameManager.FindStartGameData))]
+internal static class SaveGameManager_FindStartGameData_Patch
+{
+    private static void Postfix() => JoinedGame.OnSaveFound();
 }
 
 // Apply replacements before any consumer reads garage data. Unity's component init order between
@@ -100,6 +110,22 @@ internal static class StartGameData_FromSaveGame_DoLoad_Patch
 [HarmonyPatch(typeof(StartGameData_NewCareer), "DoLoad")]
 internal static class StartGameData_NewCareer_DoLoad_Patch
 {
+    private static void Prefix() => Additions.BuildAll();
+}
+
+// Multiplayer client save load entry point
+[HarmonyPatch]
+internal static class StartGameData_ServerSave_DoLoad_Patch
+{
+    private static MethodBase? Target() =>
+        AccessTools.TypeByName("Multiplayer.Components.SaveGame.StartGameData_ServerSave") is { } type
+            ? AccessTools.Method(type, "DoLoad")
+            : null;
+
+    private static bool Prepare() => Target() != null;
+
+    private static MethodBase TargetMethod() => Target()!;
+
     private static void Prefix() => Additions.BuildAll();
 }
 

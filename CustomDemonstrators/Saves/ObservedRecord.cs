@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CustomDemonstrators.Multiplayer;
 using CustomDemonstrators.Slots;
 using CustomDemonstrators.World;
 using DV.LocoRestoration;
@@ -9,8 +10,11 @@ namespace CustomDemonstrators.Saves;
 
 internal static class ObservedRecord
 {
+    // A player in someone else's multiplayer game holds the host's record, which only the host's world may move
     internal static void OnSave()
     {
+        if (MultiplayerSupport.IsJoined) return;
+
         try
         {
             if (Observe() is { } observed) Write(observed);
@@ -24,6 +28,8 @@ internal static class ObservedRecord
 
     internal static void OnLoadData(LocoRestorationController controller)
     {
+        if (MultiplayerSupport.IsJoined) return;
+
         try
         {
             if (!AStartGameData.carsAndJobsLoadingFinished) return;

@@ -36,11 +36,13 @@ internal static class GarageOwnership
         return _unlockedGarageIds = ids != null ? [.. ids] : [];
     }
 
-    private static HashSet<int> OwnedCarTypes()
+    internal static HashSet<int> OwnedCarTypes()
     {
         if (_ownedCarTypes != null) return _ownedCarTypes;
         return _ownedCarTypes = ComputeOwnedCarTypes();
     }
+
+    internal static void UseHostsOwnedCarTypes(IEnumerable<int> types) => _ownedCarTypes = [.. types];
 
     private static HashSet<int> ComputeOwnedCarTypes()
     {

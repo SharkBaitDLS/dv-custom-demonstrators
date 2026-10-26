@@ -5,6 +5,7 @@ using DV.Garages;
 using DV.ThingTypes;
 using DV.Utils;
 using UnityEngine;
+using CustomDemonstrators.Multiplayer;
 using CustomDemonstrators.Saves;
 using CustomDemonstrators.Slots;
 
@@ -242,7 +243,7 @@ internal static class AddedGarages
 
     private static void SpawnCars(GarageCarSpawner? spawner)
     {
-        if (spawner == null) return;
+        if (spawner == null || MultiplayerSupport.IsJoined) return;
         SingletonBehaviour<CoroutineManager>.Instance.Run(SpawnCarsWhenClear(spawner));
     }
 

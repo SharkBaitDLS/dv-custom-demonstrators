@@ -4,6 +4,7 @@ using DV.LocoRestoration;
 using DV.Utils;
 using HarmonyLib;
 using UnityEngine;
+using CustomDemonstrators.Multiplayer;
 
 namespace CustomDemonstrators.World;
 
@@ -136,6 +137,7 @@ internal static class DemonstratorRespawner
 
     internal static void SettleLoadedSlot(LocoRestorationController controller)
     {
+        if (MultiplayerSupport.IsJoined) return;
         if (!SlotTypes.IsSlotGarage(GameTypes.GarageOf(controller))) return;
 
         RevokeUnearnedOwnership(controller);
@@ -230,8 +232,11 @@ internal static class DemonstratorRespawner
     // licenses the player already holds and unblocks on its own, taking the restoration to S2. This waits
     // for that to play out and then runs the same stranded-state check a respawned wreck gets, which stops
     // at S1 when the loco's own license is still missing and only forces the issue if it is genuinely stuck.
-    internal static void SettleNewDemonstrator(LocoRestorationController controller) =>
+    internal static void SettleNewDemonstrator(LocoRestorationController controller)
+    {
+        if (MultiplayerSupport.IsJoined) return;
         SingletonBehaviour<CoroutineManager>.Instance.Run(SettleNew(controller));
+    }
 
     // The wreck only appears once the world has finished loading its cars, which on a slow load is a while.
     private const int NewSlotSpawnTimeoutFrames = 3000;

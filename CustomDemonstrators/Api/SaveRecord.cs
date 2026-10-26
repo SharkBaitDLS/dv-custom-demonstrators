@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CustomDemonstrators.Multiplayer;
 using CustomDemonstrators.Saves;
 using Newtonsoft.Json.Linq;
 
@@ -36,6 +37,13 @@ public static class SaveRecord
             {
                 Main.Logger.Warning($"{nameof(SaveRecord)}.{nameof(RestoreDemonstratorsFrom)} was called with no "
                     + "save loaded.");
+                return false;
+            }
+
+            if (MultiplayerSupport.IsJoined || MultiplayerSupport.IsHosting)
+            {
+                Main.Logger.Warning($"{nameof(SaveRecord)}.{nameof(RestoreDemonstratorsFrom)} was called during a "
+                    + "multiplayer session, this will not work correctly and has done nothing.");
                 return false;
             }
 
