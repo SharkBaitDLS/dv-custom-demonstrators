@@ -4,20 +4,40 @@ using MPAPI.Interfaces;
 
 namespace CustomDemonstrators.Multiplayer;
 
-internal static class MultiplayerHooks
+public static class MultiplayerHooks
 {
-    internal static bool Init()
+    private static Action<string> _log = _ => { };
+    private static Action<string, Exception> _logException = (_, _) => { };
+    private static Func<byte[]> _captureHostRecord = () => [];
+    private static Action _joining = () => { };
+    private static Action<byte[]> _hostRecordReceived = _ => { };
+    private static Action<string> _unreadable = _ => { };
+
+    public static Func<bool>? Init(
+        Action<string> log,
+        Action<string, Exception> logException,
+        Func<byte[]> captureHostRecord,
+        Action joining,
+        Action left,
+        Action<byte[]> hostRecordReceived,
+        Action<string> unreadable)
     {
         if (!MultiplayerAPI.IsMultiplayerLoaded)
         {
-            return false;
+            return null;
         }
+
+        _log = log;
+        _logException = logException;
+        _captureHostRecord = captureHostRecord;
+        _joining = joining;
+        _hostRecordReceived = hostRecordReceived;
+        _unreadable = unreadable;
 
         MultiplayerAPI.ServerStarted += OnServerStarted;
         MultiplayerAPI.ClientStarted += OnClientStarted;
-        MultiplayerAPI.ClientStopped += JoinedGame.End;
-        MultiplayerSupport.SetHostingProbe(() => MultiplayerAPI.Instance is { IsHost: true, IsSinglePlayer: false });
-        return true;
+        MultiplayerAPI.ClientStopped += left;
+        return () => MultiplayerAPI.Instance is { IsHost: true, IsSinglePlayer: false };
     }
 
     private static void OnServerStarted(IServer server) =>
@@ -46,13 +66,13 @@ internal static class MultiplayerHooks
     {
         try
         {
-            var data = HostRecord.Capture().ToBytes();
+            var data = _captureHostRecord();
             server.SendSerializablePacketToPlayer(new HostRecordPacket { Data = data }, player, reliable: true);
-            Main.Logger.Log($"Sent this game's demonstrator and garage setup to {player.DisplayName} ({data.Length} bytes).");
+            _log($"Sent this game's demonstrator and garage setup to {player.DisplayName} ({data.Length} bytes).");
         }
         catch (Exception ex)
         {
-            Main.Logger.LogException($"Failed to send this game's custom demonstrators state to {player.DisplayName}:", ex);
+            _logException($"Failed to send this game's custom demonstrators state to {player.DisplayName}:", ex);
         }
     }
 
@@ -61,29 +81,17 @@ internal static class MultiplayerHooks
         if (MultiplayerAPI.Instance?.IsHost == true) return;
 
         client.RegisterSerializablePacket<HostRecordPacket>(OnHostRecordPacket);
-        JoinedGame.Begin();
+        _joining();
     }
 
     private static void OnHostRecordPacket(HostRecordPacket packet)
     {
         if (packet.Protocol != HostRecordPacket.CurrentProtocol)
         {
-            JoinedGame.Unreadable("it was sent by a different version of Custom Demonstrators");
+            _unreadable("it was sent by a different version of Custom Demonstrators");
             return;
         }
 
-        HostRecord record;
-        try
-        {
-            record = HostRecord.FromBytes(packet.Data);
-        }
-        catch (Exception ex)
-        {
-            Main.Logger.LogException("Couldn't read the host's custom demonstrators state:", ex);
-            JoinedGame.Unreadable("it couldn't be read");
-            return;
-        }
-
-        JoinedGame.Receive(record);
+        _hostRecordReceived(packet.Data);
     }
 }

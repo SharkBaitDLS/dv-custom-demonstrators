@@ -15,7 +15,7 @@ if (!(Test-Path $ModInstallDir)) {
 dotnet build -c Debug "CustomDemonstrators/CustomDemonstrators.csproj"
 if ($LASTEXITCODE -ne 0) { throw "Build failed." }
 
-Copy-Item -Force -Path "build/$modId.dll" -Destination $ModInstallDir
+Copy-Item -Force -Path "build/$modId.dll","build/$modId.Multiplayer.dll" -Destination $ModInstallDir
 Copy-Item -Force -Path "info.json" -Destination $ModInstallDir
 
 # The posters folder ships with the mod, so the debug install gets it too. Contents are copied rather than

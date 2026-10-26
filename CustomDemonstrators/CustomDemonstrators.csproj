@@ -70,9 +70,10 @@
 		</Reference>
 	</ItemGroup>
 
-	<!-- Multiplayer: optional, its API ships with the Multiplayer mod rather than with us -->
+	<!-- Multiplayer support is its own assembly, only loaded alongside the Multiplayer mod. Never referenced from here,
+	     only built first so it is in build/ by the time this one packages. -->
 	<ItemGroup>
-		<PackageReference Include="DVMultiplayerAPI" Version="1.1.0" ExcludeAssets="runtime" PrivateAssets="all"/>
+		<ProjectReference Include="..\CustomDemonstrators.Multiplayer\CustomDemonstrators.Multiplayer.csproj" ReferenceOutputAssembly="false"/>
 	</ItemGroup>
 
 	<!-- Unity -->
@@ -108,8 +109,7 @@
 
 	<!-- Mod Loader -->
 	<ItemGroup>
-		<!-- The Multiplayer API asks for a newer one, but only to build against; the game's own is what runs -->
-		<PackageReference Include="UnityModManager" Version="0.27.2" NoWarn="NU1605"/>
+		<PackageReference Include="UnityModManager" Version="0.27.2"/>
 	</ItemGroup>
 
 	<!-- Unity Analyzers: Unity-aware null checks and other Unity-specific diagnostics -->
