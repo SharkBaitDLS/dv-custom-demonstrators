@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using CustomDemonstrators.Slots;
 using CustomDemonstrators.World;
+using CustomDemonstrators.World.Parts;
 using DV.LocoRestoration;
 
 namespace CustomDemonstrators.Saves;

@@ -6,6 +6,7 @@ using CustomDemonstrators.Multiplayer;
 using CustomDemonstrators.Saves;
 using CustomDemonstrators.Slots;
 using CustomDemonstrators.World;
+using CustomDemonstrators.World.Parts;
 
 namespace CustomDemonstrators;
 

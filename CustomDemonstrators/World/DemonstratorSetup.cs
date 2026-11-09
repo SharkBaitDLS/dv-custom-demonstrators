@@ -3,6 +3,7 @@ using DV.LocoRestoration;
 using DV.ThingTypes;
 using CustomDemonstrators.Saves;
 using CustomDemonstrators.Slots;
+using CustomDemonstrators.World.Parts;
 
 namespace CustomDemonstrators.World;
 

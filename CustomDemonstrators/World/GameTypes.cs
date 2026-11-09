@@ -43,6 +43,12 @@ internal static class GameTypes
         return id != null && types != null ? types.Liveries.FirstOrDefault(l => l.id == id) : null;
     }
 
+    internal static CargoType_v2? Cargo(string? id)
+    {
+        var cargos = Cargos;
+        return id != null && cargos != null ? cargos.FirstOrDefault(c => c != null && c.id == id) : null;
+    }
+
     internal static GarageType_v2? GarageOf(LocoRestorationController controller) =>
         controller.garageSpawner != null ? controller.garageSpawner.garageType : null;
 

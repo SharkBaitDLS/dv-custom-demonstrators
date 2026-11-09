@@ -5,6 +5,7 @@ using DV;
 using DV.ThingTypes;
 using DV.ThingTypes.TransitionHelpers;
 using CustomDemonstrators.World;
+using CustomDemonstrators.World.Parts;
 
 namespace CustomDemonstrators.Slots;
 
@@ -374,7 +375,7 @@ internal static class SlotChoices
             if (string.IsNullOrEmpty(choice) || choice == RestorationPartsCustomizer.GenericCrateSentinel)
                 continue;
 
-            var cargo = RestorationPartsCustomizer.FindCargo(choice!);
+            var cargo = GameTypes.Cargo(choice);
             if (cargo == null || !CanBeRestorationParts(cargo))
                 Main.Settings.SetPartsCargoId(primary.id, null);
         }
@@ -406,10 +407,10 @@ internal static class SlotChoices
         InferTendersForSwap(slot, livery);
         InferExtrasForSwap((slot, vacatedId), (livery, targetId));
 
-        RestorationPartsCustomizer.RevertSlotCargo(slot.id);
+        PartsCargoSnapshots.Revert(slot.id);
         if (livery != null)
         {
-            RestorationPartsCustomizer.RevertSlotCargo(livery.id);
+            PartsCargoSnapshots.Revert(livery.id);
         }
 
         PruneInvalidCargoOverrides();

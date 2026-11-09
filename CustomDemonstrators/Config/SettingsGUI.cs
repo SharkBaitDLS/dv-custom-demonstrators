@@ -9,6 +9,7 @@ using CustomDemonstrators.Multiplayer;
 using CustomDemonstrators.Slots;
 using CustomDemonstrators.Saves;
 using CustomDemonstrators.World;
+using CustomDemonstrators.World.Parts;
 #if DEBUG
 using CustomDemonstrators.Diagnostics;
 #endif
@@ -695,7 +696,7 @@ internal static class SettingsGUI
         }
         if (choice == RestorationPartsCustomizer.GenericCrateSentinel)
             return GenericCrateLabel;
-        var cargo = RestorationPartsCustomizer.FindCargo(choice!);
+        var cargo = GameTypes.Cargo(choice);
         return cargo != null ? Loc(cargo.localizationKeyFull, cargo.id) : $"? {choice}";
     }
 
