@@ -68,7 +68,8 @@ internal static class PartsCargoModels
         {
             if (li.carType == null) continue;
 
-            var prefab = li.carType.id switch {
+            var prefab = li.carType.id switch
+            {
                 "LocoDM1U" => dm1u,
                 "FlatbedShort" => flatbed,
                 // If this is a modded flatcar, we don't try to guess at whether the DM1U or vanilla flatcar
