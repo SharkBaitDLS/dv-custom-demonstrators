@@ -6,6 +6,7 @@ on:
       - '*'
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
@@ -20,6 +21,28 @@ jobs:
         uses: actions/checkout@v6
         with:
           lfs: true
+
+      - name: Require passing CI on this commit
+        shell: powershell
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sha = '${{ github.sha }}'
+          $appearBy = (Get-Date).AddMinutes(2)
+          while ($true) {
+            $json = gh run list --workflow ci.yml --commit $sha --event push --limit 1 --json databaseId,url
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to query CI runs.' }
+            $run = @($json -join "`n" | ConvertFrom-Json) | Select-Object -First 1
+            if ($run) { break }
+            if ((Get-Date) -gt $appearBy) { throw "No CI run found for $sha. Was it pushed to main?" }
+            Write-Host 'Waiting for the CI run to appear...'
+            Start-Sleep -Seconds 10
+          }
+          Write-Host "Waiting on CI: $($run.url)"
+          gh run watch $run.databaseId --exit-status --compact --interval 15
+          if ($LASTEXITCODE -ne 0) { throw "CI did not pass for $sha`: $($run.url)" }
 
       - name: Pull LFS files
         run: git lfs pull
