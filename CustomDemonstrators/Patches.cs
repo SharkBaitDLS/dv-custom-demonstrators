@@ -156,6 +156,14 @@ internal static class LocoRestorationController_SetState_Patch
     private static void Finalizer() => RestorationPopups.EndCapture();
 }
 
+// Vanilla finds the track a wreck must be hauled to by name, and track names are not guaranteed unique.
+// This is only relevant to hand-placed slots since the museum roundhouse tracks *are* uniquely named.
+[HarmonyPatch(typeof(LocoRestorationController), "OnTrackChanged")]
+internal static class LocoRestorationController_OnTrackChanged_Patch
+{
+    private static void Prefix(LocoRestorationController __instance) => DemonstratorSlots.PinDestination(__instance);
+}
+
 [HarmonyPatch(typeof(TutorialHelper), nameof(TutorialHelper.ShowTutorialFloatie))]
 internal static class TutorialHelper_ShowTutorialPopup_Patch
 {

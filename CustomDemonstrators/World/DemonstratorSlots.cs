@@ -26,6 +26,7 @@ internal static class DemonstratorSlots
         public GenericThingCashRegisterModule? Install;
         public CargoType_v2? CargoTemplate;
         public CargoType_v2? Cargo;
+        public RailTrack? Destination;
     }
 
     private static readonly Dictionary<string, BuiltSlot> _slots = [];
@@ -129,8 +130,9 @@ internal static class DemonstratorSlots
 
         foreach (var kv in _slots)
         {
-            if (!SlotScene.MoveHome(kv.Key, kv.Value.Home, kv.Value.Controller)) continue;
-            SlotBoard.Reposition(kv.Key, kv.Value.Board, template, kv.Value.Home);
+            var slot = kv.Value;
+            if (!SlotScene.MoveHome(kv.Key, slot.Home, slot.Controller, ref slot.Destination)) continue;
+            SlotBoard.Reposition(kv.Key, slot.Board, template, slot.Home);
         }
 
         if (changed) types.RecalculateCaches();
@@ -191,7 +193,8 @@ internal static class DemonstratorSlots
         (built.Order, built.Install) = SlotScene.CreateRegisterModules(locoId, template, built.Register);
         built.CargoTemplate = template.locoPartCargo;
 
-        var destination = SlotScene.DestinationTrackFor(locoId, home, template.destinationTrackId);
+        var (destination, destinationTrack) = SlotScene.DestinationTrackFor(locoId, home, template.destinationTrackId);
+        built.Destination = destinationTrack;
 
         // The garage spawner and the restoration controller both live on the poster object, or a dummy container
         // if for some reason a poster couldn't be built. Either way it's held inactive until the slot is whole,
@@ -302,6 +305,14 @@ internal static class DemonstratorSlots
         var model = GameTypes.Current;
         if (slot.Cargo != null && model != null) model.RecalculateCaches();
         return slot.Cargo;
+    }
+
+    // Runs ahead of every arrival check in a restoration controller to ensure the correct track is actually used
+    internal static void PinDestination(LocoRestorationController controller)
+    {
+        if (_slots.Count == 0 || GameTypes.Id(controller.locoLivery) is not string locoId) return;
+        if (!_slots.TryGetValue(locoId, out var slot) || slot.Controller != controller) return;
+        if (slot.Destination != null) SlotScene.PinDestination(controller, slot.Destination);
     }
 
     internal static LocoRestorationController? Template() =>

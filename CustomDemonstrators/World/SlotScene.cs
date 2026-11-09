@@ -4,12 +4,12 @@ using System.Reflection;
 using DV.CashRegister;
 using DV.LocoRestoration;
 using DV.Shops;
-using DV.Utils;
 using DV.ThingTypes;
 using HarmonyLib;
 using UnityEngine;
 using CustomDemonstrators.Saves;
 using CustomDemonstrators.Slots;
+using RestorationState = DV.LocoRestoration.LocoRestorationController.RestorationState;
 
 namespace CustomDemonstrators.World;
 
@@ -168,10 +168,14 @@ internal static class SlotScene
     }
 
     internal static string? TrackNameAt(Vector3 position) =>
-        RailTrack.GetClosest(position).track is var track && track != null ? track.name : null;
+        TrackAt(position) is RailTrack track ? track.name : null;
+
+    private static RailTrack? TrackAt(Vector3 position) =>
+        RailTrack.GetClosest(position).track is var track && track != null ? track : null;
 
     // Puts a hand-placed slot on its new spot. Returns whether anything moved.
-    internal static bool MoveHome(string locoId, GameObject? marker, LocoRestorationController? controller)
+    internal static bool MoveHome(
+        string locoId, GameObject? marker, LocoRestorationController? controller, ref RailTrack? destination)
     {
         if (marker == null || Placement(locoId) is not Placement placement) return false;
 
@@ -182,46 +186,63 @@ internal static class SlotScene
         marker.transform.localPosition = placement.Offset;
         marker.transform.localRotation = rotation;
 
-        var track = TrackNameAt(marker.transform.position);
-        if (controller == null || track == null || track == controller.destinationTrackId)
+        // Track IDs are not guaranteed unique so they must be compared by identity
+        var track = TrackAt(marker.transform.position);
+        if (controller == null || track == null || track == destination)
         {
             Main.Logger.Log($"Moved the demonstrator slot for {locoId}.");
             return true;
         }
 
-        controller.destinationTrackId = track;
-        DestinationRailTrack?.SetValue(controller,
-            SingletonBehaviour<RailTrackRegistryBase>.Instance is var registry && registry != null ? registry.GetTrackWithName(track) : null);
+        destination = track;
+        controller.destinationTrackId = track.name;
+        PinDestination(controller, track);
 
-        Main.Logger.Log($"Moved the demonstrator slot for {locoId} to track {track}"
-            + (controller.State is > LocoRestorationController.RestorationState.S0_Initialized
-                    and < LocoRestorationController.RestorationState.S4_OnDestinationTrack
+        // The arrival check only runs when a car changes track, so we manually check when the track changes
+        bool arrived = false;
+        if (controller.State == RestorationState.S3_RerailedCars)
+        {
+            CheckArrival?.Invoke(controller, null);
+            arrived = controller.State == RestorationState.S4_OnDestinationTrack;
+        }
+
+        var outcome = arrived ? ", where its wreck is already delivered."
+            : controller.State is > RestorationState.S0_Initialized and < RestorationState.S4_OnDestinationTrack
                 ? ", which is where its wreck now has to be hauled."
-                : "."));
+                : ".";
+        Main.Logger.Log($"Moved the demonstrator slot for {locoId} to track {track.name}{outcome}");
         return true;
     }
 
     private static readonly FieldInfo? DestinationRailTrack =
         AccessTools.Field(typeof(LocoRestorationController), "destinationRailTrack");
 
-    internal static string DestinationTrackFor(string locoId, SlotHome home, string fallback)
+    private static readonly MethodInfo? CheckArrival =
+        AccessTools.Method(typeof(LocoRestorationController), "OnTrackChanged");
+
+    internal static void PinDestination(LocoRestorationController controller, RailTrack track)
     {
-        // A stall claimed by name needs no searching
-        if (!string.IsNullOrEmpty(home.Stall)) return home.Stall!;
+        if (DestinationRailTrack != null && !ReferenceEquals(DestinationRailTrack.GetValue(controller), track))
+            DestinationRailTrack.SetValue(controller, track);
+    }
+
+    internal static (string Name, RailTrack? Track) DestinationTrackFor(string locoId, SlotHome home, string fallback)
+    {
+        if (!string.IsNullOrEmpty(home.Stall)) return (home.Stall!, null);
 
         // A hand-placed slot has to find the right spot
-        if (!home.Placed || home.Marker == null) return fallback;
+        if (!home.Placed || home.Marker == null) return (fallback, null);
 
-        var track = TrackNameAt(home.Marker.transform.position);
+        var track = TrackAt(home.Marker.transform.position);
         if (track == null)
         {
             Main.Logger.Warning($"Additional demonstrator '{locoId}' found no track near its garage position; "
                 + $"its restoration will be delivered to {fallback} instead.");
-            return fallback;
+            return (fallback, null);
         }
 
-        Main.Logger.Log($"Additional demonstrator '{locoId}' will be restored on track {track}.");
-        return track;
+        Main.Logger.Log($"Additional demonstrator '{locoId}' will be restored on track {track.name}.");
+        return (track.name, track);
     }
 
     internal static LocoRestorationController CreateController(
