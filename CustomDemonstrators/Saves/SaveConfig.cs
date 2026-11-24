@@ -13,22 +13,22 @@ internal static class SaveConfig
 {
     private const char EntrySeparator = ';';
     private const char SpawnSeparator = '>';
-    private const char TenderSeparator = '+';
-    private const string NoTender = "-";
+    private const char SecondCarSeparator = '+';
+    private const string NoSecondCar = "-";
 
     private const char GarageSeparator = '=';
     private const char GarageSpawnSeparator = ',';
     private const char ExtraCarSeparator = '+';
 
-    private static Dictionary<string, (string SpawnId, string? TenderId)>? _demo;
+    private static Dictionary<string, (string SpawnId, string? SecondCarId)>? _demo;
     private static bool _parsed;
 
     private static Dictionary<string, (List<string> SpawnIds, List<string> Extras)>? _garages;
     private static bool _parsedGarages;
 
-    // Original-primary-loco id -> the loco + tender the save was written with. Null on a save the mod never
+    // Original-primary-loco id -> the loco + second car the save was written with. Null on a save the mod never
     // touched.
-    internal static Dictionary<string, (string SpawnId, string? TenderId)>? Demonstrators
+    internal static Dictionary<string, (string SpawnId, string? SecondCarId)>? Demonstrators
     {
         get
         {
@@ -63,12 +63,12 @@ internal static class SaveConfig
     }
 
     // The demonstrator record held by any save, this one or another. Null on a save the mod never touched.
-    internal static Dictionary<string, (string SpawnId, string? TenderId)>? DemonstratorsIn(SaveGameData data) =>
+    internal static Dictionary<string, (string SpawnId, string? SecondCarId)>? DemonstratorsIn(SaveGameData data) =>
         ParseDemonstrators(data.GetString(SaveGuard.DemonstratorFingerprintKey));
 
     // Replaces the loaded save's demonstrator record, returning false if it already said exactly this.
     internal static bool WriteDemonstrators(SaveGameData data,
-        IReadOnlyDictionary<string, (string SpawnId, string? TenderId)> entries)
+        IReadOnlyDictionary<string, (string SpawnId, string? SecondCarId)> entries)
     {
         var serialized = SerializeDemonstrators(entries);
         if (data.GetString(SaveGuard.DemonstratorFingerprintKey) == serialized) return false;
@@ -79,7 +79,7 @@ internal static class SaveConfig
         return true;
     }
 
-    internal static string SerializeDemonstrators(IReadOnlyDictionary<string, (string SpawnId, string? TenderId)> entries)
+    internal static string SerializeDemonstrators(IReadOnlyDictionary<string, (string SpawnId, string? SecondCarId)> entries)
     {
         var vanilla = VanillaGarages.Demonstrators.Select((d, i) => (d.Primary.id, i))
             .ToDictionary(d => d.id, d => d.i, StringComparer.Ordinal);
@@ -90,31 +90,31 @@ internal static class SaveConfig
             .ThenBy(e => e.Key, StringComparer.Ordinal))
         {
             sb.Append(entry.Key).Append(SpawnSeparator)
-              .Append(entry.Value.SpawnId).Append(TenderSeparator)
-              .Append(entry.Value.TenderId ?? NoTender).Append(EntrySeparator);
+              .Append(entry.Value.SpawnId).Append(SecondCarSeparator)
+              .Append(entry.Value.SecondCarId ?? NoSecondCar).Append(EntrySeparator);
         }
         return sb.ToString();
     }
 
-    private static Dictionary<string, (string SpawnId, string? TenderId)>? ParseDemonstrators(string? fingerprint)
+    private static Dictionary<string, (string SpawnId, string? SecondCarId)>? ParseDemonstrators(string? fingerprint)
     {
         if (string.IsNullOrEmpty(fingerprint)) return null;
 
-        var map = new Dictionary<string, (string SpawnId, string? TenderId)>();
+        var map = new Dictionary<string, (string SpawnId, string? SecondCarId)>();
         foreach (var entry in fingerprint!.Split(EntrySeparator))
         {
             if (entry.Length == 0) continue;
             int spawn = entry.IndexOf(SpawnSeparator);
             if (spawn <= 0) continue;
-            int tender = entry.IndexOf(TenderSeparator, spawn + 1);
-            if (tender < 0) continue;
+            int secondCar = entry.IndexOf(SecondCarSeparator, spawn + 1);
+            if (secondCar < 0) continue;
 
             var primaryId = entry.Substring(0, spawn);
-            var spawnId = entry.Substring(spawn + 1, tender - spawn - 1);
-            var tenderPart = entry.Substring(tender + 1);
+            var spawnId = entry.Substring(spawn + 1, secondCar - spawn - 1);
+            var secondCarPart = entry.Substring(secondCar + 1);
             if (spawnId.Length == 0) continue;
 
-            map[primaryId] = (spawnId, tenderPart == NoTender ? null : tenderPart);
+            map[primaryId] = (spawnId, secondCarPart == NoSecondCar ? null : secondCarPart);
         }
         return map.Count > 0 ? map : null;
     }

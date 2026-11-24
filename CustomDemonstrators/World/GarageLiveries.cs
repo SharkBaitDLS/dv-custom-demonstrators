@@ -106,7 +106,7 @@ internal static class GarageLiveries
         DesiredLiveries(garage, DemonstratorSlots.ClaimedLiveryIds()).FirstOrDefault();
 
     // The liveries a garage should spawn after overrides. A normal garage just does a simple replace.
-    // A demonstrator garage is rebuilt from its primary loco plus its resolved tender if any.
+    // A demonstrator garage is rebuilt from its primary loco plus its resolved second car if any.
     private static TrainCarLivery[] DesiredLiveries(GarageType_v2 garage, HashSet<string> spokenFor)
     {
         if (!VanillaGarages.IsDemonstrator(garage.v1))
@@ -126,14 +126,14 @@ internal static class GarageLiveries
         var primary = VanillaGarages.PrimaryLoco(garage);
         if (primary == null) return VanillaGarages.OriginalLiveries(garage);
 
-        if (!DemonstratorSetup.Resolve(primary, VanillaGarages.OriginalTender(garage), primary.id,
-                out var replacementLoco, out var tenderLivery))
+        if (!DemonstratorSetup.Resolve(primary, VanillaGarages.OriginalSecondCar(garage), primary.id,
+                out var replacementLoco, out var secondCarLivery))
         {
             return VanillaGarages.OriginalLiveries(garage);
         }
 
         var desired = new List<TrainCarLivery> { replacementLoco != null ? replacementLoco : primary };
-        if (tenderLivery != null) desired.Add(tenderLivery);
+        if (secondCarLivery != null) desired.Add(secondCarLivery);
         return [.. desired];
     }
 }

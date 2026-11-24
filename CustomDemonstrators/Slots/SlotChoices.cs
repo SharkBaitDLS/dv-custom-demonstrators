@@ -62,9 +62,9 @@ internal static class SlotChoices
         if (!IsValidFor(slotKind, candidate))
             return false;
 
-        // A car already serving as a demonstrator's tender can't also be a garage/loco spawn (the
-        // game allows a livery in only one garage), and tenders aren't swappable, so disallow it.
-        if (CurrentSpawnId(slot) != candidate.id && TenderIds().Contains(candidate.id))
+        // A car already serving as a demonstrator's second car can't also be a garage/loco spawn (the
+        // game allows a livery in only one garage), and second cars aren't swappable, so disallow it.
+        if (CurrentSpawnId(slot) != candidate.id && SecondCarIds().Contains(candidate.id))
             return false;
 
         // Likewise a car already added as another garage's extra consist car has no swap partner.
@@ -109,52 +109,52 @@ internal static class SlotChoices
         && CarTypes.IsLocomotive(livery) && livery.requiredLicense != null;
 
     // Don't allow base game stock to be muddled with modded ones
-    internal static bool IsValidTender(TrainCarLivery livery) =>
+    internal static bool IsValidSecondCar(TrainCarLivery livery) =>
         CustomCarLoaderHelper.IsCustomCar(livery);
 
-    internal static TrainCarLivery? ResolveTender(GarageType_v2 garage, TrainCarLivery primary) =>
-        ResolveTender(primary.id, VanillaGarages.OriginalTender(garage));
+    internal static TrainCarLivery? ResolveSecondCar(GarageType_v2 garage, TrainCarLivery primary) =>
+        ResolveSecondCar(primary.id, VanillaGarages.OriginalSecondCar(garage));
 
-    internal static TrainCarLivery? ResolveTender(string slotId, TrainCarLivery? originalTender)
+    internal static TrainCarLivery? ResolveSecondCar(string slotId, TrainCarLivery? originalSecondCar)
     {
-        var id = Main.Settings.GetTenderId(slotId);
+        var id = Main.Settings.GetSecondCarId(slotId);
         if (!string.IsNullOrEmpty(id)) return GetLivery(id!);
-        return IsPrimaryReplaced(slotId) ? null : originalTender;
+        return IsPrimaryReplaced(slotId) ? null : originalSecondCar;
     }
 
-    private static void InferTender(TrainCarLivery slot)
+    private static void InferSecondCar(TrainCarLivery slot)
     {
         if (!IsPrimaryReplaced(slot.id)) return;
 
         var loco = GetLivery(CurrentSpawnId(slot.id));
-        var tender = loco != null ? AutoTender(loco) : null;
+        var secondCar = loco != null ? AutoSecondCar(loco) : null;
 
         // Never auto-claim a livery something else already spawns
-        if (tender != null && !AllSpawnedIds().Contains(tender.id))
-            Main.Settings.SetTenderId(slot.id, tender.id);
+        if (secondCar != null && !AllSpawnedIds().Contains(secondCar.id))
+            Main.Settings.SetSecondCarId(slot.id, secondCar.id);
     }
 
     // Both sides of a swap are cleared before either is inferred, so a swap goes through properly
-    private static void InferTendersForSwap(params TrainCarLivery?[] slots)
+    private static void InferSecondCarsForSwap(params TrainCarLivery?[] slots)
     {
         foreach (var slot in slots)
-            if (slot != null && IsDemonstratorSlot(slot)) Main.Settings.SetTenderId(slot.id, null);
+            if (slot != null && IsDemonstratorSlot(slot)) Main.Settings.SetSecondCarId(slot.id, null);
         foreach (var slot in slots)
-            if (slot != null && IsDemonstratorSlot(slot)) InferTender(slot);
+            if (slot != null && IsDemonstratorSlot(slot)) InferSecondCar(slot);
     }
 
     private static bool IsDemonstratorSlot(TrainCarLivery slot) =>
         AllSlots().Any(s => s.livery.id == slot.id && s.kind == SlotKind.Demonstrator);
 
-    // Adds a demonstrator slot of this mod's own, pre-selecting its loco's tender the same way.
+    // Adds a demonstrator slot of this mod's own, pre-selecting its loco's second car the same way.
     internal static void AddAdditionalSlot(string locoId)
     {
         Main.Settings.AddAdditionalSlot(locoId);
 
         var loco = GetLivery(locoId);
-        var tender = loco != null ? AutoTender(loco) : null;
-        if (tender != null && !AllSpawnedIds().Contains(tender.id))
-            Main.Settings.SetTenderId(locoId, tender.id);
+        var secondCar = loco != null ? AutoSecondCar(loco) : null;
+        if (secondCar != null && !AllSpawnedIds().Contains(secondCar.id))
+            Main.Settings.SetSecondCarId(locoId, secondCar.id);
     }
 
     internal static void AddAdditionalGarage(string primaryId)
@@ -194,7 +194,7 @@ internal static class SlotChoices
 
     // CCL as the primary source of truth, anything without a configured trainset falls back to the game's
     // <livery>A + <livery>B convention.
-    internal static TrainCarLivery? AutoTender(TrainCarLivery loco)
+    internal static TrainCarLivery? AutoSecondCar(TrainCarLivery loco)
     {
         if (!CarTypes.IsLocomotive(loco)) return null;
 
@@ -217,10 +217,10 @@ internal static class SlotChoices
         Main.Settings.LiveryReplacements.TryGetValue(slotId, out var r)
         && !string.IsNullOrEmpty(r) && r != slotId;
 
-    internal static bool CanSelectTender(string slotId, TrainCarLivery? originalTender, TrainCarLivery candidate)
+    internal static bool CanSelectSecondCar(string slotId, TrainCarLivery? original, TrainCarLivery candidate)
     {
-        if (!IsValidTender(candidate)) return false;
-        var current = ResolveTender(slotId, originalTender);
+        if (!IsValidSecondCar(candidate)) return false;
+        var current = ResolveSecondCar(slotId, original);
         if (current != null && current.id == candidate.id) return true;
         return !AllSpawnedIds().Contains(candidate.id);
     }
@@ -236,7 +236,7 @@ internal static class SlotChoices
                 var primary = liveries.FirstOrDefault();
                 if (primary == null) continue;
                 yield return CurrentSpawnId(primary);
-                var second = ResolveTender(garage, primary);
+                var second = ResolveSecondCar(garage, primary);
                 if (second != null) yield return second.id;
             }
             else
@@ -255,7 +255,7 @@ internal static class SlotChoices
             yield return id;
     }
 
-    // The locos (and tenders) claimed by the demonstrator slots this mod adds.
+    // The locos (and second cars) claimed by the demonstrator slots this mod adds.
     internal static HashSet<string> AdditionalSlotIds()
     {
         var ids = new HashSet<string>();
@@ -263,8 +263,8 @@ internal static class SlotChoices
         {
             if (string.IsNullOrEmpty(slot.LocoId)) continue;
             ids.Add(slot.LocoId);
-            var tender = Main.Settings.GetTenderId(slot.LocoId);
-            if (!string.IsNullOrEmpty(tender)) ids.Add(tender!);
+            var secondCar = Main.Settings.GetSecondCarId(slot.LocoId);
+            if (!string.IsNullOrEmpty(secondCar)) ids.Add(secondCar!);
         }
         return ids;
     }
@@ -319,14 +319,14 @@ internal static class SlotChoices
     internal static bool CanAddExtraCar(TrainCarLivery candidate) =>
         !AllSpawnedIds().Contains(candidate.id);
 
-    // The resolved tender ids across all demonstrators, so the normal-garage picker can avoid
-    // handing out a livery that's already serving as a tender.
-    private static HashSet<string> TenderIds()
+    // The resolved second car ids across all demonstrators, so the normal-garage picker can avoid
+    // handing out a livery that's already serving as a second car.
+    private static HashSet<string> SecondCarIds()
     {
         var ids = new HashSet<string>();
         foreach (var (garage, primary) in VanillaGarages.Demonstrators)
         {
-            var second = ResolveTender(garage, primary);
+            var second = ResolveSecondCar(garage, primary);
             if (second != null) ids.Add(second.id);
         }
         return ids;
@@ -405,7 +405,7 @@ internal static class SlotChoices
         if (livery != null)
             SetSpawn(livery, vacatedId);
 
-        InferTendersForSwap(slot, livery);
+        InferSecondCarsForSwap(slot, livery);
         InferExtrasForSwap((slot, vacatedId), (livery, targetId));
 
         PartsCargoSnapshots.Revert(slot.id);

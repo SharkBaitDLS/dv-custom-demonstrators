@@ -103,7 +103,7 @@ internal static class DebugCheats
                 + $" ({(controller.locoPartCargo != null ? controller.locoPartCargo.massPerUnit : -1f):N0} kg/unit)"
                 + $", order ${Price(controller.orderPartsModule):N0}"
                 + $", install ${Price(controller.installPartsModule):N0}"
-                + $", tender {GameTypes.Id(controller.secondCarLivery) ?? "none"}");
+                + $", second car {GameTypes.Id(controller.secondCarLivery) ?? "none"}");
         }
 
         foreach (var kv in SlotTypes.CargoMapping())

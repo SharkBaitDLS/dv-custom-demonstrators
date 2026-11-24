@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Serialization;
-using DV;
 using DV.ThingTypes;
 using UnityEngine;
 using UnityModManagerNet;
@@ -55,7 +54,7 @@ public class Settings : UnityModManager.ModSettings
 
     // Demonstrator slots this mod adds on top of the game's six. A slot is identified by the loco it
     // restores rather than by a synthetic id since the game keys restoration save state by locoLivery.id.
-    // One loco can back exactly one slot, and every per-slot setting below (tender, cargo, prices) keys
+    // One loco can back exactly one slot, and every per-slot setting below (second car, cargo, prices) keys
     // off that same id for vanilla and additional slots alike.
     [XmlIgnore] internal List<AdditionalSlot> AdditionalSlots { get; set; } = [];
 
@@ -130,14 +129,14 @@ public class Settings : UnityModManager.ModSettings
         get => [.. Demonstrators.Select(kv => new DemonstratorEntry
         {
             LiveryId = kv.Key,
-            TenderId = kv.Value.TenderId ?? "",
+            TenderId = kv.Value.SecondCarId ?? "",
             CargoId = kv.Value.CargoId ?? "",
             OrderPrice = kv.Value.OrderPrice ?? -1f,
             InstallPrice = kv.Value.InstallPrice ?? -1f,
         })];
         set => Demonstrators = (value ?? []).ToDictionary(e => e.LiveryId, e => new DemonstratorOverride
         {
-            TenderId = string.IsNullOrEmpty(e.TenderId) ? null : e.TenderId,
+            SecondCarId = string.IsNullOrEmpty(e.TenderId) ? null : e.TenderId,
             CargoId = string.IsNullOrEmpty(e.CargoId) ? null : e.CargoId,
             OrderPrice = e.OrderPrice < 0f ? null : e.OrderPrice,
             InstallPrice = e.InstallPrice < 0f ? null : e.InstallPrice,
@@ -175,11 +174,11 @@ public class Settings : UnityModManager.ModSettings
 
     internal void ClearDemonstratorOverride(string slotId) => Demonstrators.Remove(slotId);
 
-    internal string? GetTenderId(string slotId) =>
-        Demonstrators.TryGetValue(slotId, out var o) ? o.TenderId : null;
+    internal string? GetSecondCarId(string slotId) =>
+        Demonstrators.TryGetValue(slotId, out var o) ? o.SecondCarId : null;
 
-    internal void SetTenderId(string slotId, string? secondCarId) =>
-        Mutate(slotId, o => o.TenderId = secondCarId);
+    internal void SetSecondCarId(string slotId, string? secondCarId) =>
+        Mutate(slotId, o => o.SecondCarId = secondCarId);
 
     // The configured parts-cargo choice for a demonstrator slot. The default of null uses whatever was
     // supplied from CCL, or the generic crate prefab if one wasn't provided.
@@ -208,7 +207,7 @@ public class Settings : UnityModManager.ModSettings
         if (!Demonstrators.TryGetValue(slotId, out var o))
             o = new DemonstratorOverride();
         change(o);
-        if (string.IsNullOrEmpty(o.TenderId) && string.IsNullOrEmpty(o.CargoId)
+        if (string.IsNullOrEmpty(o.SecondCarId) && string.IsNullOrEmpty(o.CargoId)
             && o.OrderPrice == null && o.InstallPrice == null)
             Demonstrators.Remove(slotId);
         else
@@ -315,7 +314,7 @@ public class Settings : UnityModManager.ModSettings
 
     internal class DemonstratorOverride
     {
-        public string? TenderId;
+        public string? SecondCarId;
         public string? CargoId;
         public float? OrderPrice;
         public float? InstallPrice;

@@ -83,8 +83,12 @@ internal static class VanillaGarages
         return loco != null ? loco : liveries.FirstOrDefault(l => l != null);
     }
 
-    internal static TrainCarLivery? OriginalTender(GarageType_v2 garage) =>
-        OriginalLiveries(garage).FirstOrDefault(l => l != null && CarTypes.IsTender(l));
+    // Whatever car the garage originally paired with its primary, regardless of type
+    internal static TrainCarLivery? OriginalSecondCar(GarageType_v2 garage)
+    {
+        var primary = PrimaryLoco(garage);
+        return OriginalLiveries(garage).FirstOrDefault(l => l != null && l != primary);
+    }
 
     internal static IReadOnlyList<(GarageType_v2 garage, bool isDemonstrator, List<TrainCarLivery> liveries)> Groups
     {

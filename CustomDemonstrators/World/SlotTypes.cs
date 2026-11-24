@@ -62,8 +62,8 @@ internal static class SlotTypes
     }
 
     internal static GarageType_v2 GetOrCreateGarage(
-        string locoId, TrainCarLivery loco, TrainCarLivery? tender, GarageType_v2 template) =>
-        GetOrCreate(SlotGarageId(locoId), tender != null ? [loco, tender] : [loco], template);
+        string locoId, TrainCarLivery loco, TrainCarLivery? secondCar, GarageType_v2 template) =>
+        GetOrCreate(SlotGarageId(locoId), secondCar != null ? [loco, secondCar] : [loco], template);
 
     internal static GarageType_v2 GetOrCreateWorkGarage(
         string primaryId, TrainCarLivery[] liveries, GarageType_v2 template) =>

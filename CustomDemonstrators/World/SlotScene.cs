@@ -246,7 +246,7 @@ internal static class SlotScene
     }
 
     internal static LocoRestorationController CreateController(
-        GameObject host, TrainCarLivery loco, TrainCarLivery? tender, LocoRestorationController template,
+        GameObject host, TrainCarLivery loco, TrainCarLivery? secondCar, LocoRestorationController template,
         GarageCarSpawner spawner, GenericThingCashRegisterModule order, GenericThingCashRegisterModule install,
         LocoRestorationSpawnPoint[] spawnPoints, string destinationTrackId)
     {
@@ -261,7 +261,7 @@ internal static class SlotScene
         }
 
         controller.locoLivery = loco;
-        controller.secondCarLivery = tender;
+        controller.secondCarLivery = secondCar;
         controller.garageSpawner = spawner;
         controller.orderPartsModule = order;
         controller.installPartsModule = install;
@@ -275,7 +275,7 @@ internal static class SlotScene
             ZoneBlockers.PrefabFor(template.locoLivery),
             controller.locoBlockerPrefab);
         controller.secondCarBlockerPrefab = ZoneBlockers.First(
-            ZoneBlockers.PrefabFor(tender),
+            ZoneBlockers.PrefabFor(secondCar),
             ZoneBlockers.PrefabFor(template.secondCarLivery),
             controller.secondCarBlockerPrefab,
             controller.locoBlockerPrefab);

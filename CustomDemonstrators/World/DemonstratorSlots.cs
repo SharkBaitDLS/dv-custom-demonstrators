@@ -139,7 +139,7 @@ internal static class DemonstratorSlots
     }
 
     // Why a livery can't be given a demonstrator slot of its own, or null if it can
-    internal static string? SlotUnavailableReason(string locoId, TrainCarLivery? tender)
+    internal static string? SlotUnavailableReason(string locoId, TrainCarLivery? secondCar)
     {
         var types = GameTypes.Current;
         if (types == null) return "the game's types aren't loaded yet";
@@ -147,7 +147,7 @@ internal static class DemonstratorSlots
         var loco = Livery(locoId);
         if (loco == null) return "no such livery is loaded";
 
-        foreach (var claimed in new[] { loco, tender })
+        foreach (var claimed in new[] { loco, secondCar })
         {
             if (claimed == null) continue;
 
@@ -169,8 +169,8 @@ internal static class DemonstratorSlots
         var types = GameTypes.Current;
         if (types == null) return false;
 
-        var tender = TenderFor(locoId);
-        if (SlotUnavailableReason(locoId, tender) is string reason)
+        var secondCar = SecondCarFor(locoId);
+        if (SlotUnavailableReason(locoId, secondCar) is string reason)
         {
             Main.Logger.Warning($"Additional demonstrator '{locoId}' was skipped: {reason}.");
             return false;
@@ -179,7 +179,7 @@ internal static class DemonstratorSlots
         var loco = Livery(locoId);
         if (loco == null) return false;
 
-        var garage = SlotTypes.GetOrCreateGarage(locoId, loco, tender, template.garageSpawner.garageType);
+        var garage = SlotTypes.GetOrCreateGarage(locoId, loco, secondCar, template.garageSpawner.garageType);
         GarageLiveries.ApplySummonPrice(garage, VanillaGarages.DefaultDemonstratorSummonPrice());
         types.garages.Add(garage);
         SlotTypes.AllowSummoning(garage);
@@ -205,7 +205,7 @@ internal static class DemonstratorSlots
 
         built.Spawner = SlotScene.CreateSpawner(host, garage, built.Home, template.garageSpawner);
         built.Controller = SlotScene.CreateController(
-            host, loco, tender, template, built.Spawner, built.Order, built.Install, spawnPoints, destination);
+            host, loco, secondCar, template, built.Spawner, built.Order, built.Install, spawnPoints, destination);
 
         // Installing a board into the museum is what wakes it
         if (pending is SlotBoard.Pending ready)
@@ -288,7 +288,7 @@ internal static class DemonstratorSlots
         foreach (var locoId in DesiredLocoIds())
         {
             ids.Add(locoId);
-            if (GameTypes.Id(TenderFor(locoId)) is string tenderId) ids.Add(tenderId);
+            if (GameTypes.Id(SecondCarFor(locoId)) is string secondCarId) ids.Add(secondCarId);
         }
         return ids;
     }
@@ -338,15 +338,15 @@ internal static class DemonstratorSlots
     private static TrainCarLivery? Livery(string id) =>
         GameTypes.Livery(id);
 
-    private static TrainCarLivery? TenderFor(string locoId)
+    private static TrainCarLivery? SecondCarFor(string locoId)
     {
         if (!SaveGuard.AllowDemonstratorChanges()
             && SaveConfig.Demonstrators is { } baked && baked.TryGetValue(locoId, out var entry))
         {
-            return entry.TenderId != null ? Livery(entry.TenderId) : null;
+            return entry.SecondCarId != null ? Livery(entry.SecondCarId) : null;
         }
 
-        var id = Main.Settings.GetTenderId(locoId);
+        var id = Main.Settings.GetSecondCarId(locoId);
         return string.IsNullOrEmpty(id) ? null : Livery(id!);
     }
 }

@@ -22,24 +22,24 @@ internal static class SettingsGUI
     private const string NoReplacementLabel = "(default — no replacement)";
     private const string DefaultCargoLabel = "(default)";
     private const string GenericCrateLabel = "Generic parts crate";
-    private const string DefaultTenderLabel = "Default";
+    private const string DefaultSecondCarLabel = "Default";
 
     private static List<TrainCarLivery>? _candidateLiveries;
     private static List<CargoType_v2>? _candidateCargos;
-    private static List<TrainCarLivery>? _candidateTenders;
+    private static List<TrainCarLivery>? _candidateSecondCars;
 
     // Which picker is currently expanded. Search text and scroll position live in SearchPicker, keyed by
     // the same strings used here.
     private static string? _openPickerFor;
     private static string? _openCargoPickerFor;
-    private static string? _openTenderPickerFor;
+    private static string? _openSecondCarPickerFor;
     private static string? _openExtraPickerFor;
     private static bool _openAdditionalPicker;
     private static bool _openAdditionalGaragePicker;
 
     private static string ReplacementKey(string slotId) => $"replacement:{slotId}";
     private static string CargoKey(string slotId) => $"cargo:{slotId}";
-    private static string TenderKey(string slotId) => $"tender:{slotId}";
+    private static string SecondCarKey(string slotId) => $"secondCar:{slotId}";
     private static string ExtraKey(string garageId) => $"extra:{garageId}";
     private const string AdditionalKey = "additional";
     private const string AdditionalGarageKey = "additionalGarage";
@@ -86,7 +86,7 @@ internal static class SettingsGUI
         _candidateLiveries ??= [.. Globals.G.Types.Liveries.OrderBy(l => l.id)];
         _candidateCargos ??= [.. Globals.G.Types.cargos
             .Where(c => c != null && !SlotTypes.IsSlotCargo(c)).OrderBy(c => c.id)];
-        _candidateTenders ??= [.. Globals.G.Types.Liveries.Where(SlotChoices.IsValidTender).OrderBy(l => l.id)];
+        _candidateSecondCars ??= [.. Globals.G.Types.Liveries.Where(SlotChoices.IsValidSecondCar).OrderBy(l => l.id)];
 
         GUILayout.Label(IntroText, GUILayout.ExpandWidth(true));
         GUILayout.Space(6);
@@ -158,7 +158,7 @@ internal static class SettingsGUI
             SaveGuard.ForceApplyDemonstrators();
         GUILayout.Label("Moving a demonstrator changes where it is delivered for restoration and where it "
             + "respawns when cleared, but does not move the actual locomotive. "
-            + "Demonstrator slots whose locomotive or tender changed will respawn as a fresh wreck at "
+            + "Demonstrator slots whose locomotive or second car changed will respawn as a fresh wreck at "
             + "a new location, and any demonstrators in those slots are removed. Removed demonstrators that are "
             + "unrestored will be deleted, while any restored locmotives stays in the world but will no longer be "
             + "summonable from the comms radio or respawn when cleared. If a demonstrator only moves between slots "
@@ -183,7 +183,7 @@ internal static class SettingsGUI
     {
         adopt();
         _priceText.Clear();
-        _openPickerFor = _openCargoPickerFor = _openTenderPickerFor = _openExtraPickerFor = null;
+        _openPickerFor = _openCargoPickerFor = _openSecondCarPickerFor = _openExtraPickerFor = null;
         _openAdditionalPicker = _openAdditionalGaragePicker = false;
         Main.Settings.Save(entry);
     }
@@ -229,7 +229,7 @@ internal static class SettingsGUI
                 {
                     var replacement = Main.Settings.GetReplacement(livery);
                     DrawDemonstratorRows(livery.id, replacement != null ? replacement : livery,
-                        VanillaGarages.OriginalTender(garage),
+                        VanillaGarages.OriginalSecondCar(garage),
                         garage.id, VanillaGarages.OriginalSummonPrice(garage));
                 }
             }
@@ -288,29 +288,29 @@ internal static class SettingsGUI
     }
 
     private static void DrawDemonstratorRows(string slotId, TrainCarLivery effectiveLoco,
-        TrainCarLivery? originalTender, string garageId, float fallbackSummonPrice)
+        TrainCarLivery? originalSecondCar, string garageId, float fallbackSummonPrice)
     {
-        DrawTenderRow(slotId, originalTender);
+        DrawSecondCarRow(slotId, originalSecondCar);
         if (Main.Settings.ShowAdvanced)
             DrawDemonstratorExtras(slotId, effectiveLoco, garageId, fallbackSummonPrice);
         GUILayout.Space(4);
     }
 
-    private static void DrawTenderRow(string slotId, TrainCarLivery? originalTender)
+    private static void DrawSecondCarRow(string slotId, TrainCarLivery? originalSecondCar)
     {
         GUILayout.BeginHorizontal();
         SubRowHeader("Secondary car (tender, B-unit, etc.):");
-        bool tenderOpen = _openTenderPickerFor == slotId;
-        if (GUILayout.Button($"{TenderLabel(slotId, originalTender)} ▼", GUILayout.Width(ControlWidth)))
+        bool secondCarOpen = _openSecondCarPickerFor == slotId;
+        if (GUILayout.Button($"{SecondCarLabel(slotId, originalSecondCar)} ▼", GUILayout.Width(ControlWidth)))
         {
-            _openTenderPickerFor = tenderOpen ? null : slotId;
-            SearchPicker.Reset(TenderKey(slotId));
+            _openSecondCarPickerFor = secondCarOpen ? null : slotId;
+            SearchPicker.Reset(SecondCarKey(slotId));
         }
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
 
-        if (tenderOpen)
-            SearchPicker.Draw(TenderKey(slotId), TenderOptions(slotId, originalTender));
+        if (secondCarOpen)
+            SearchPicker.Draw(SecondCarKey(slotId), SecondCarOptions(slotId, originalSecondCar));
     }
 
     private static void DrawDemonstratorExtras(string slotId, TrainCarLivery effectiveLoco,
@@ -654,33 +654,33 @@ internal static class SettingsGUI
         }
     }
 
-    private static string TenderLabel(string slotId, TrainCarLivery? originalTender)
+    private static string SecondCarLabel(string slotId, TrainCarLivery? originalSecondCar)
     {
-        var resolved = SlotChoices.ResolveTender(slotId, originalTender);
-        bool isDefault = string.IsNullOrEmpty(Main.Settings.GetTenderId(slotId));
+        var resolved = SlotChoices.ResolveSecondCar(slotId, originalSecondCar);
+        bool isDefault = string.IsNullOrEmpty(Main.Settings.GetSecondCarId(slotId));
         if (resolved == null)
-            return $"{DefaultTenderLabel} → (none)";
+            return $"{DefaultSecondCarLabel} → (none)";
         string name = Loc(resolved.localizationKey, resolved.id);
-        return isDefault ? $"{DefaultTenderLabel} → {name}" : name;
+        return isDefault ? $"{DefaultSecondCarLabel} → {name}" : name;
     }
 
-    private static IEnumerable<SearchPicker.Option> TenderOptions(string slotId, TrainCarLivery? originalTender)
+    private static IEnumerable<SearchPicker.Option> SecondCarOptions(string slotId, TrainCarLivery? originalSecondCar)
     {
-        yield return new(DefaultTenderLabel, null, () =>
+        yield return new(DefaultSecondCarLabel, null, () =>
         {
-            Main.Settings.SetTenderId(slotId, null);
-            _openTenderPickerFor = null;
+            Main.Settings.SetSecondCarId(slotId, null);
+            _openSecondCarPickerFor = null;
         });
 
-        foreach (var candidate in _candidateTenders!)
+        foreach (var candidate in _candidateSecondCars!)
         {
-            if (!SlotChoices.CanSelectTender(slotId, originalTender, candidate)) continue;
+            if (!SlotChoices.CanSelectSecondCar(slotId, originalSecondCar, candidate)) continue;
 
             var chosen = candidate;
             yield return new(Loc(chosen.localizationKey, chosen.id), chosen.id, () =>
             {
-                Main.Settings.SetTenderId(slotId, chosen.id);
-                _openTenderPickerFor = null;
+                Main.Settings.SetSecondCarId(slotId, chosen.id);
+                _openSecondCarPickerFor = null;
             });
         }
     }

@@ -50,16 +50,16 @@ internal static class ObservedRecord
         }
     }
 
-    private static Dictionary<string, (string SpawnId, string? TenderId)>? Observe()
+    private static Dictionary<string, (string SpawnId, string? SecondCarId)>? Observe()
     {
         var stored = SaveConfig.Demonstrators;
         var live = LiveSlots();
-        var entries = new Dictionary<string, (string SpawnId, string? TenderId)>(StringComparer.Ordinal);
+        var entries = new Dictionary<string, (string SpawnId, string? SecondCarId)>(StringComparer.Ordinal);
         bool untouched = stored == null;
 
         foreach (var (garage, primary) in VanillaGarages.Demonstrators)
         {
-            var original = (primary.id, GameTypes.Id(VanillaGarages.OriginalTender(garage)));
+            var original = (primary.id, GameTypes.Id(VanillaGarages.OriginalSecondCar(garage)));
             var entry = Seen(primary.id, live, stored) ?? original;
             entries[primary.id] = entry;
             untouched &= entry == original;
@@ -71,21 +71,21 @@ internal static class ObservedRecord
 
         foreach (var slotId in added)
         {
-            // A slot of its own is named after its loco, so only its tender is free to move. A controller
+            // A slot of its own is named after its loco, so only its second car is free to move. A controller
             // pointed at some other loco can't be written down, and keeps what the record already said.
             var seen = Seen(slotId, live, stored);
             entries[slotId] = seen is { } s && s.SpawnId == slotId ? s
                 : stored != null && stored.TryGetValue(slotId, out var kept) ? kept
-                : (slotId, seen?.TenderId);
+                : (slotId, seen?.SecondCarId);
             untouched = false;
         }
 
         return untouched ? null : entries;
     }
 
-    private static (string SpawnId, string? TenderId)? Seen(string slotId,
+    private static (string SpawnId, string? SecondCarId)? Seen(string slotId,
         Dictionary<string, (LocoRestorationController Controller, bool IsAdded)> live,
-        Dictionary<string, (string SpawnId, string? TenderId)>? stored)
+        Dictionary<string, (string SpawnId, string? SecondCarId)>? stored)
     {
         if (stored != null && stored.TryGetValue(slotId, out var kept) && !Installed(kept)) return kept;
         if (!live.TryGetValue(slotId, out var slot)) return stored?.TryGetValue(slotId, out kept) == true ? kept : null;
@@ -93,8 +93,8 @@ internal static class ObservedRecord
         return (slot.Controller.locoLivery.id, GameTypes.Id(slot.Controller.secondCarLivery));
     }
 
-    private static bool Installed((string SpawnId, string? TenderId) entry) =>
-        GameTypes.Livery(entry.SpawnId) != null && (entry.TenderId == null || GameTypes.Livery(entry.TenderId) != null);
+    private static bool Installed((string SpawnId, string? SecondCarId) entry) =>
+        GameTypes.Livery(entry.SpawnId) != null && (entry.SecondCarId == null || GameTypes.Livery(entry.SecondCarId) != null);
 
     private static Dictionary<string, (LocoRestorationController Controller, bool IsAdded)> LiveSlots()
     {
@@ -108,7 +108,7 @@ internal static class ObservedRecord
         return live;
     }
 
-    private static HashSet<string> Write(Dictionary<string, (string SpawnId, string? TenderId)> observed)
+    private static HashSet<string> Write(Dictionary<string, (string SpawnId, string? SecondCarId)> observed)
     {
         var data = SaveState.Data();
         if (data == null) return [];

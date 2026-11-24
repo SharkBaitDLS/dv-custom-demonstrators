@@ -129,7 +129,7 @@ internal static class SaveGuard
         _forcedDemo = true;
         _allowDemo = null;
         AllowDemonstratorChanges();
-        DemonstratorSetup.ReturnLentLicenses(); // re-derived below, and a dropped tender keeps nothing
+        DemonstratorSetup.ReturnLentLicenses(); // re-derived below
         GarageLiveries.Apply();
         // Add and remove the mod's own slots before respawning, so the loop below sees the final set and a
         // slot that was just taken apart isn't handed a fresh wreck on its way out.
@@ -198,11 +198,11 @@ internal static class SaveGuard
 
     internal static string DemonstratorFingerprint()
     {
-        var entries = new Dictionary<string, (string SpawnId, string? TenderId)>(StringComparer.Ordinal);
+        var entries = new Dictionary<string, (string SpawnId, string? SecondCarId)>(StringComparer.Ordinal);
         foreach (var (garage, primary) in VanillaGarages.Demonstrators)
         {
-            var tender = SlotChoices.ResolveTender(garage, primary);
-            entries[primary.id] = (SlotChoices.CurrentSpawnId(primary), GameTypes.Id(tender));
+            var secondCar = SlotChoices.ResolveSecondCar(garage, primary);
+            entries[primary.id] = (SlotChoices.CurrentSpawnId(primary), GameTypes.Id(secondCar));
         }
 
         // Slots this mod adds are part of what a save was baked with, so adding or removing one has to
@@ -210,8 +210,8 @@ internal static class SaveGuard
         foreach (var slot in Main.Settings.AdditionalSlots)
         {
             if (string.IsNullOrEmpty(slot.LocoId)) continue;
-            var tenderId = Main.Settings.GetTenderId(slot.LocoId);
-            entries[slot.LocoId] = (slot.LocoId, string.IsNullOrEmpty(tenderId) ? null : tenderId);
+            var secondCarId = Main.Settings.GetSecondCarId(slot.LocoId);
+            entries[slot.LocoId] = (slot.LocoId, string.IsNullOrEmpty(secondCarId) ? null : secondCarId);
         }
         return SaveConfig.SerializeDemonstrators(entries);
     }

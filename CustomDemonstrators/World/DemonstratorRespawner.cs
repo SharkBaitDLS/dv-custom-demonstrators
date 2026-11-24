@@ -214,7 +214,7 @@ internal static class DemonstratorRespawner
         CarLifecycle.SweepGadgetsToLostAndFound(secondCar);
 
         Main.Logger.Log($"Destroying demonstrator {loco.name} [{loco.ID}] to force a respawn.");
-        // Tearing down the tender cascades to the parent loco, but not visa versa,
+        // Tearing down the second car cascades to the parent trainset, but not visa versa,
         // so we attempt to delete that if it exists.
         if (secondCar != null)
         {

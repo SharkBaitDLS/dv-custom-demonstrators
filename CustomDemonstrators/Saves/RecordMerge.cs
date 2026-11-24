@@ -40,7 +40,7 @@ internal static class RecordMerge
 
         // A slot of its own is named after the locomotive standing in it, so the save id is the slot id.
         var ownSlots = theirEntries.Where(entry => added.Contains(entry.Value.SpawnId))
-            .Select(entry => (SlotId: entry.Value.SpawnId, entry.Value.TenderId))
+            .Select(entry => (SlotId: entry.Value.SpawnId, entry.Value.SecondCarId))
             .ToList();
 
         if (inPlace.Count == 0 && ownSlots.Count == 0) return null;
@@ -48,7 +48,7 @@ internal static class RecordMerge
         var merged = SaveConfig.DemonstratorsIn(data) ?? [];
 
         foreach (var slotId in inPlace) merged[slotId] = theirEntries[slotId];
-        foreach (var (slotId, tenderId) in ownSlots) merged[slotId] = (slotId, tenderId);
+        foreach (var (slotId, secondCarId) in ownSlots) merged[slotId] = (slotId, secondCarId);
 
         SaveConfig.WriteDemonstrators(data, merged);
 
@@ -103,7 +103,7 @@ internal static class RecordMerge
     }
 
     private static string? SlotUnavailableReason(string saveId,
-        Dictionary<string, (string SpawnId, string? TenderId)>? theirEntries, int free)
+        Dictionary<string, (string SpawnId, string? SecondCarId)>? theirEntries, int free)
     {
         var vanilla = VanillaGarages.VanillaDemonstratorIds();
         if (vanilla.Contains(saveId)) return "cannot occupy a vanilla demonstrator slot";
@@ -113,9 +113,9 @@ internal static class RecordMerge
 
         if (free <= 0) return "the museum has no stall left for this slot";
 
-        var tenderId = theirEntries?.Values.FirstOrDefault(e => e.SpawnId == saveId).TenderId;
+        var secondCarId = theirEntries?.Values.FirstOrDefault(e => e.SpawnId == saveId).SecondCarId;
         return DemonstratorSlots.SlotUnavailableReason(
-            saveId, tenderId != null ? DemonstratorSetup.GetLivery(tenderId) : null);
+            saveId, secondCarId != null ? DemonstratorSetup.GetLivery(secondCarId) : null);
     }
 
     private static int FreeStalls()

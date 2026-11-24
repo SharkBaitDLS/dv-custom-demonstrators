@@ -22,13 +22,13 @@ internal static class SaveAdoption
         foreach (var (garage, primary) in VanillaGarages.Demonstrators)
         {
             // A slot the save doesn't mention was never customized in it, so it goes back to its original.
-            var (SpawnId, TenderId) = Lookup(baked, primary.id) ?? (primary.id, null);
+            var (SpawnId, SecondCarId) = Lookup(baked, primary.id) ?? (primary.id, null);
             SlotChoices.SetSpawn(primary.id, SpawnId);
-            AdoptTender(primary.id, VanillaGarages.OriginalTender(garage), TenderId);
+            AdoptSecondCar(primary.id, VanillaGarages.OriginalSecondCar(garage), SecondCarId);
             AdoptCargoChoice(primary.id);
 
             claimed.Add(SpawnId);
-            if (TenderId != null) claimed.Add(TenderId);
+            if (SecondCarId != null) claimed.Add(SecondCarId);
         }
 
         AdoptAdditionalSlots(baked, claimed);
@@ -72,30 +72,30 @@ internal static class SaveAdoption
         SlotChoices.PruneInvalidCargoOverrides();
     }
 
-    private static (string SpawnId, string? TenderId)? Lookup(
-        Dictionary<string, (string SpawnId, string? TenderId)>? baked, string slotId) =>
+    private static (string SpawnId, string? SecondCarId)? Lookup(
+        Dictionary<string, (string SpawnId, string? SecondCarId)>? baked, string slotId) =>
         baked != null && baked.TryGetValue(slotId, out var entry) ? entry : null;
 
-    // ResolveTender falls back to the garage's own tender while the loco is unreplaced, so only write an
-    // override where that fallback wouldn't already land on the baked tender. That keeps an adopted save
+    // ResolveSecondCar falls back to the garage's own second car while the loco is unreplaced, so only write an
+    // override where that fallback wouldn't already land on the baked second car. That keeps an adopted save
     // from picking up overrides it never had, which would show up as a fingerprint mismatch.
-    private static void AdoptTender(string slotId, TrainCarLivery? originalTender, string? tenderId)
+    private static void AdoptSecondCar(string slotId, TrainCarLivery? originalSecondCar, string? secondCarId)
     {
-        Main.Settings.SetTenderId(slotId, null);
-        if (GameTypes.Id(SlotChoices.ResolveTender(slotId, originalTender)) != tenderId)
-            Main.Settings.SetTenderId(slotId, tenderId);
+        Main.Settings.SetSecondCarId(slotId, null);
+        if (GameTypes.Id(SlotChoices.ResolveSecondCar(slotId, originalSecondCar)) != secondCarId)
+            Main.Settings.SetSecondCarId(slotId, secondCarId);
     }
 
     // The slots this mod adds are the baked entries that aren't one of the game's own demonstrators.
     private static void AdoptAdditionalSlots(
-        Dictionary<string, (string SpawnId, string? TenderId)>? baked, HashSet<string> claimed)
+        Dictionary<string, (string SpawnId, string? SecondCarId)>? baked, HashSet<string> claimed)
     {
         var vanilla = VanillaGarages.VanillaDemonstratorIds();
         var wanted = new Dictionary<string, string?>(StringComparer.Ordinal);
         if (baked != null)
         {
             foreach (var kv in baked)
-                if (!vanilla.Contains(kv.Key)) wanted[kv.Key] = kv.Value.TenderId;
+                if (!vanilla.Contains(kv.Key)) wanted[kv.Key] = kv.Value.SecondCarId;
         }
 
         foreach (var slot in Main.Settings.AdditionalSlots.ToList())
@@ -108,7 +108,7 @@ internal static class SaveAdoption
             // Adding a slot that's already configured is a no-op, so one adopted back unchanged keeps what
             // it already had.
             Main.Settings.AddAdditionalSlot(kv.Key);
-            Main.Settings.SetTenderId(kv.Key, kv.Value);
+            Main.Settings.SetSecondCarId(kv.Key, kv.Value);
             AdoptPlacement(kv.Key);
             AdoptCargoChoice(kv.Key);
 
@@ -225,16 +225,16 @@ internal static class SaveAdoption
                 SlotChoices.SetSpawn(primary.id, primary.id);
             }
 
-            var tender = SlotChoices.ResolveTender(garage, primary);
-            if (tender != null && claimed.Contains(tender.id))
-                Main.Settings.SetTenderId(primary.id, null);
+            var secondCar = SlotChoices.ResolveSecondCar(garage, primary);
+            if (secondCar != null && claimed.Contains(secondCar.id))
+                Main.Settings.SetSecondCarId(primary.id, null);
         }
 
         foreach (var slot in Main.Settings.AdditionalSlots.ToList())
         {
-            var tenderId = Main.Settings.GetTenderId(slot.LocoId);
-            if (tenderId != null && claimed.Contains(tenderId))
-                Main.Settings.SetTenderId(slot.LocoId, null);
+            var secondCarId = Main.Settings.GetSecondCarId(slot.LocoId);
+            if (secondCarId != null && claimed.Contains(secondCarId))
+                Main.Settings.SetSecondCarId(slot.LocoId, null);
 
             if (!claimed.Contains(slot.LocoId)) continue;
             Main.Logger.Warning($"Additional demonstrator {slot.LocoId} was dropped: "

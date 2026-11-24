@@ -50,8 +50,8 @@ internal static class CarLifecycle
     internal static void Delete(TrainCar car)
     {
         var owned = SingletonBehaviour<OwnedCarsStateController>.Instance;
-        // Set difference rather than matching on the car's ID: deleting a tender cascades to its loco, so
-        // one call can stage more than one debt, and only the ones this call created may be dropped.
+        // Set difference rather than matching on the car's ID: deleting a second car in a set cascades to its loco,
+        // so one call can stage more than one debt, and only the ones this call created may be dropped.
         var before = owned != null
             ? new HashSet<StagedOwnedCarDebt>(owned.currentlyDestroyedOwnedCarStates)
             : null;
