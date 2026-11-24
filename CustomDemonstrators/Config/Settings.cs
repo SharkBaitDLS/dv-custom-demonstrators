@@ -129,14 +129,14 @@ public class Settings : UnityModManager.ModSettings
         get => [.. Demonstrators.Select(kv => new DemonstratorEntry
         {
             LiveryId = kv.Key,
-            TenderId = kv.Value.SecondCarId ?? "",
+            SecondCarId = kv.Value.SecondCarId ?? "",
             CargoId = kv.Value.CargoId ?? "",
             OrderPrice = kv.Value.OrderPrice ?? -1f,
             InstallPrice = kv.Value.InstallPrice ?? -1f,
         })];
         set => Demonstrators = (value ?? []).ToDictionary(e => e.LiveryId, e => new DemonstratorOverride
         {
-            SecondCarId = string.IsNullOrEmpty(e.TenderId) ? null : e.TenderId,
+            SecondCarId = string.IsNullOrEmpty(e.SecondCarId) ? null : e.SecondCarId,
             CargoId = string.IsNullOrEmpty(e.CargoId) ? null : e.CargoId,
             OrderPrice = e.OrderPrice < 0f ? null : e.OrderPrice,
             InstallPrice = e.InstallPrice < 0f ? null : e.InstallPrice,
@@ -341,7 +341,15 @@ public class Settings : UnityModManager.ModSettings
     public class DemonstratorEntry
     {
         [XmlAttribute] public string LiveryId { get; set; } = "";
-        [XmlAttribute] public string TenderId { get; set; } = "";
+        [XmlAttribute] public string SecondCarId { get; set; } = "";
+
+        // Deprecated name for SecondCarId, will be removed in 2.x
+        [XmlAttribute("TenderId")]
+        public string? LegacyTenderId
+        {
+            get => null;
+            set { if (string.IsNullOrEmpty(SecondCarId)) SecondCarId = value ?? ""; }
+        }
         [XmlAttribute] public string CargoId { get; set; } = "";
         [XmlAttribute] public float OrderPrice { get; set; } = -1f;
         [XmlAttribute] public float InstallPrice { get; set; } = -1f;
