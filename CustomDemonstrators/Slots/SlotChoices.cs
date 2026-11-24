@@ -108,10 +108,9 @@ internal static class SlotChoices
         CustomCarLoaderHelper.IsCustomCar(livery)
         && CarTypes.IsLocomotive(livery) && livery.requiredLicense != null;
 
-    // The tender isn't license-gated by the restoration, it shares its blocker rules with its
-    // locomotive.
+    // Don't allow base game stock to be muddled with modded ones
     internal static bool IsValidTender(TrainCarLivery livery) =>
-        CustomCarLoaderHelper.IsCustomCar(livery) && CarTypes.IsTender(livery);
+        CustomCarLoaderHelper.IsCustomCar(livery);
 
     internal static TrainCarLivery? ResolveTender(GarageType_v2 garage, TrainCarLivery primary) =>
         ResolveTender(primary.id, VanillaGarages.OriginalTender(garage));
@@ -199,8 +198,10 @@ internal static class SlotChoices
     {
         if (!CarTypes.IsLocomotive(loco)) return null;
 
-        foreach (var member in CustomCarLoaderHelper.TrainsetFor(loco))
-            if (member != null && CarTypes.IsTender(member)) return member;
+        var trainset = CustomCarLoaderHelper.TrainsetFor(loco);
+        int index = Array.FindIndex(trainset, m => m != null && m.id == loco.id);
+        var next = index >= 0 && index + 1 < trainset.Length ? trainset[index + 1] : null;
+        if (next != null) return next;
 
         return ConventionalTender(loco);
     }
